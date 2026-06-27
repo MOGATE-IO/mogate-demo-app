@@ -74,7 +74,28 @@ export function usePrivyWalletAdapter(): WalletAdapter {
 
   const connect = useCallback(async (): Promise<WalletSnapshot> => {
     if (!privy.isReady) {
-      throw new Error('Privy is still initializing.');
+      return {
+        stack: 'privy',
+        status: 'idle',
+        address: null,
+        ownerAddress: null,
+        evmUaAddress: null,
+        solanaUaAddress: null,
+        linkedSolanaAddress: findEmbeddedSolanaWallet(solanaWallet)?.address ?? null,
+        balance: null,
+        identity: summarizePrivyIdentity({
+          user: privy.user,
+          evmWallets: wallets,
+          solanaWallets: solanaWallet?.wallets
+        }),
+        capabilities: {
+          eip712: 'unknown',
+          eip7702Authorization: 'unknown',
+          universalAccount: 'unknown',
+          topUp: 'unknown'
+        },
+        lastError: null
+      };
     }
 
     let activeUser = privy.user;
@@ -148,6 +169,13 @@ export function usePrivyWalletAdapter(): WalletAdapter {
   }, [create, oauth, privy.isReady, privy.user, signAuthorization, solanaWallet, wallets]);
 
   const refresh = useCallback(async () => {
+    if (!privy.isReady) {
+      return {
+        status: 'idle',
+        lastError: null
+      } satisfies Partial<WalletSnapshot>;
+    }
+
     const wallet = findEmbeddedEvmWallet(wallets);
     const linkedSolanaAddress = findEmbeddedSolanaWallet(solanaWallet)?.address ?? null;
     return {
@@ -167,12 +195,14 @@ export function usePrivyWalletAdapter(): WalletAdapter {
         topUp: wallet ? 'supported' : 'unknown'
       }
     } satisfies Partial<WalletSnapshot>;
-  }, [privy.user, signAuthorization, solanaWallet, wallets]);
+  }, [privy.isReady, privy.user, signAuthorization, solanaWallet, wallets]);
 
   return useMemo(
     () => ({
       stack: 'privy',
       label: 'Privy RN embedded wallet',
+      isReady: privy.isReady,
+      readinessLabel: privy.isReady ? 'Ready' : 'Preparing Privy',
       connect,
       async disconnect() {
         await privy.logout?.();

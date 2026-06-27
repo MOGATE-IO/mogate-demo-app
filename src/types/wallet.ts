@@ -78,6 +78,8 @@ export type WalletTopUpRequest = {
 export type WalletAdapter = {
   stack: WalletStack;
   label: string;
+  isReady?: boolean;
+  readinessLabel?: string;
   connect: () => Promise<WalletSnapshot>;
   disconnect: () => Promise<void>;
   refresh: () => Promise<Partial<WalletSnapshot>>;

@@ -6,12 +6,16 @@ import { Card } from '@/components/Card';
 type LoginRequiredProps = {
   title?: string;
   detail?: string;
+  buttonLabel?: string;
+  disabled?: boolean;
   loading?: boolean;
   onLogin: () => void | Promise<void>;
 };
 
 export function LoginRequired({
+  buttonLabel = 'Connect',
   detail = 'Connect your embedded wallet to view this section.',
+  disabled,
   loading,
   onLogin,
   title = 'Login required'
@@ -20,8 +24,8 @@ export function LoginRequired({
     <Card title={title} eyebrow="Protected">
       <View style={styles.body}>
         <Text style={styles.copy}>{detail}</Text>
-        <Button loading={loading} onPress={onLogin} variant="primary">
-          Connect
+        <Button disabled={disabled} loading={loading} onPress={onLogin} variant="primary">
+          {buttonLabel}
         </Button>
       </View>
     </Card>

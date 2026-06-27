@@ -11,6 +11,9 @@ import type { AppScreenContext } from './types';
 export function HomeScreen({ context }: { context: AppScreenContext }) {
   const { balance, catalogue, profile, topUp, wallet } = context;
   const ownerAddress = wallet.snapshot.ownerAddress || wallet.snapshot.address || '';
+  const connected = wallet.snapshot.status === 'connected';
+  const preparingWallet = wallet.adapter?.isReady === false;
+  const connectLabel = preparingWallet ? 'Preparing' : connected ? 'Connected' : 'Connect';
 
   return (
     <View style={styles.stack}>
@@ -23,11 +26,12 @@ export function HomeScreen({ context }: { context: AppScreenContext }) {
           <Button
             loading={wallet.snapshot.status === 'connecting'}
             onPress={wallet.connect}
+            disabled={!wallet.isAdapterReady || connected}
             variant="primary"
           >
-            Connect
+            {connectLabel}
           </Button>
-          <Button onPress={wallet.refresh} disabled={wallet.snapshot.status !== 'connected'}>
+          <Button onPress={wallet.refresh} disabled={!wallet.isAdapterReady || !connected}>
             Refresh
           </Button>
           <Button onPress={topUp} disabled={!ownerAddress} variant="quiet">

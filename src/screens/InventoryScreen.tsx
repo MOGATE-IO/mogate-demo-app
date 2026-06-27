@@ -10,10 +10,13 @@ import type { AppScreenContext } from './types';
 export function InventoryScreen({ context }: { context: AppScreenContext }) {
   const connected = context.wallet.snapshot.status === 'connected';
   const ownerAddress = context.wallet.snapshot.ownerAddress || context.wallet.snapshot.address || '';
+  const preparingWallet = context.wallet.adapter?.isReady === false;
 
   if (!connected) {
     return (
       <LoginRequired
+        buttonLabel={preparingWallet ? 'Preparing' : 'Connect'}
+        disabled={!context.wallet.isAdapterReady}
         loading={context.wallet.snapshot.status === 'connecting'}
         onLogin={context.wallet.connect}
         detail="Connect to view funded giftcards and token actions."

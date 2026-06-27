@@ -36,6 +36,15 @@ export function useUniversalWallet(options: UseUniversalWalletOptions = {}) {
       return;
     }
 
+    if (adapter.isReady === false) {
+      setSnapshot({
+        stack: selectedStack,
+        status: 'idle',
+        lastError: null
+      });
+      return;
+    }
+
     setSnapshot({ stack: selectedStack, status: 'connecting', lastError: null });
     try {
       const nextSnapshot = await adapter.connect();
@@ -51,6 +60,7 @@ export function useUniversalWallet(options: UseUniversalWalletOptions = {}) {
 
   const refresh = useCallback(async () => {
     if (!adapter) return;
+    if (adapter.isReady === false) return;
     try {
       setSnapshot(await adapter.refresh());
     } catch (error) {
@@ -79,6 +89,7 @@ export function useUniversalWallet(options: UseUniversalWalletOptions = {}) {
 
   return {
     adapter,
+    isAdapterReady: Boolean(adapter && adapter.isReady !== false),
     snapshot,
     selectedStack,
     switchStack,
