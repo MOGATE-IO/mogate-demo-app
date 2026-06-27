@@ -1,0 +1,29 @@
+# Mobile UA Lab Agent Notes
+
+- Keep this Expo app isolated under `apps/mobile`; do not move Particle/Privy RN dependencies into the web app package.
+- Default profile is Mainnet/Arbitrum One `42161`. Keep Testnet/Sepolia available only as a manual profile switch.
+- Particle UA must use EIP-7702 in-place mode. If authorization signing is rejected, report the blocker instead of switching to smart-account fallback.
+- Do not clear EIP-7702 delegation by default. Replacing delegation is enough for Particle UA versus Mogate7702 flows.
+- Contract target v0 is the existing `AuthorityMintGateway.unsafeCheckout` at `0x58C18578885BdB7f469612aAB662cfDF33dde3e1`.
+- Collection target v0 is `0xb5b1f04020b1226c545bed6f122a5726664aec0f`.
+- Reserved gas is not atomic in v0 because the gateway returns an unknown token ID after mint. Use a new gateway variant for v1.
+- Transak belongs in client top-up UX plus backend webhook recording. The backend must not mint with a private key for the normal user-paid flow.
+
+## 2026-06-27
+
+- Wallet stack, UA chain/mode, API paths, gateway addresses, and payment recipients are code-level config. Do not move them back into Expo env.
+- Mobile supports v0/v2 gateway modes through `src/config/networkProfiles.ts`.
+- v2 requires gateway address and funded collection in the active network profile. The backend supplies payment recipient per checkout.
+- HeroUI Native is a visual reference, not a dependency. Keep the mobile shell light, compact, and module-card based.
+- Funded v2 uses a new ERC721-compatible funded collection, not `ERC721MG`; the collection owns tokenId value and native reserved gas directly.
+
+## 2026-06-27: Signer Provider Policy
+
+- Treat Particle as the UA SDK/router. Do not assume Particle RN Auth is a verified EIP-7702 signer unless the installed SDK exposes a working authorization method.
+- The product signer candidates are Privy, Magic, and Dynamic embedded/WaaS wallets.
+- In-place mode means the EOA address is the receiver and executor. Do not default checkout receiver to a smart-account/deposit address.
+- Magic is reference-only in the default app. Re-add Magic only in a separate native-clean experiment, then map `magic.wallet.sign7702Authorization()` before enabling sends.
+- Dynamic is scaffolded as a planned provider until its RN WaaS connector is wired.
+- Top-up is optional. Do not tell users they must transfer existing Base/Arbitrum primary assets into a UA address before minting. Solana assets can only be considered when the UA identity exposes a recognized Solana source/address.
+- Same-login/same-address requires the same embedded signer provider and project across web and mobile; Particle UA does not merge EOAs created by different login providers.
+- `0xUA` or deposit addresses must not become the checkout receiver in the in-place product path; `checkout.to` must stay the owner EOA.

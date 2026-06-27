@@ -1,0 +1,25 @@
+# Env
+.env
+.env.*
+!.env.example
+
+# Dependencies and package managers
+node_modules/
+.npm/
+.yarn/
+
+# Expo and native build output
+.expo/
+.expo-shared/
+android/
+ios/
+web-build/
+dist/
+build/
+
+# Logs and OS/editor noise
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
