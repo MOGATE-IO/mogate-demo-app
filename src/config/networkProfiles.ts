@@ -1,5 +1,5 @@
 import { MOBILE_ENV, type GatewayVersion, type UaNetworkMode } from '@/config/env';
-import type { HexString } from '@/types/wallet';
+import type { HexString } from '@/@web3/types/wallet';
 
 export type AppNetworkMode = 'testnet' | 'mainnet';
 

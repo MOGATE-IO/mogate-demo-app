@@ -1,4 +1,4 @@
-import type { HexString } from '@/types/wallet';
+import type { HexString } from '@/@web3/types/wallet';
 
 export { PUBLIC_PARTICLE_UA_CHAIN_IDS, isPublicParticleUaChain } from './particleUaSupport';
 

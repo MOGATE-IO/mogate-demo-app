@@ -1,10 +1,10 @@
 import type { MainTab } from '@/components/BottomTabBar';
 import type { AppNetworkMode, RuntimeNetworkProfile } from '@/config/networkProfiles';
-import type { useBalance } from '@/hooks/useBalance';
-import type { useGiftcardCatalogue } from '@/hooks/useGiftcardCatalogue';
-import type { useUniversalAccountMint } from '@/hooks/useUniversalAccountMint';
-import type { useUniversalWallet } from '@/hooks/useUniversalWallet';
-import type { GiftcardMerchant } from '@/services/catalogue';
+import type { useBalance } from '@/@web3/hooks/useBalance';
+import type { useGiftcardCatalogue } from '@/features/catalogue/hooks/useGiftcardCatalogue';
+import type { useUniversalAccountMint } from '@/features/checkout/hooks/useUniversalAccountMint';
+import type { useUniversalWallet } from '@/@web3/hooks/useUniversalWallet';
+import type { GiftcardMerchant } from '@/features/catalogue/services/catalogue';
 
 export type CheckoutSelection = {
   merchant: GiftcardMerchant;

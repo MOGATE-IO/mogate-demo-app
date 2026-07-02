@@ -6,8 +6,8 @@ import {
   type RuntimeNetworkProfile
 } from '@/config/networkProfiles';
 import { describeParticlePrimaryAssetConfig } from '@/config/particleUaSupport';
-import { getSignerProviderInfo, isProductEip7702Signer } from '@/config/signerProviders';
-import type { WalletStack } from '@/types/wallet';
+import { getSignerProviderInfo, isProductEip7702Signer } from '@/@web3/config/signerProviders';
+import type { WalletStack } from '@/@web3/types/wallet';
 
 export type ProductReadinessCheck = {
   id: string;

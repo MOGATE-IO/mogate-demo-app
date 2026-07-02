@@ -7,9 +7,9 @@ import { SegmentOption, SegmentedControl } from '@/components/SegmentedControl';
 import { StatusPill } from '@/components/StatusPill';
 import type { AppNetworkMode } from '@/config/networkProfiles';
 import { getProductReadinessChecks } from '@/config/productReadiness';
-import { getSignerProviderInfo } from '@/config/signerProviders';
-import { WALLET_STACK_OPTIONS } from '@/config/walletStack';
-import type { WalletStack } from '@/types/wallet';
+import { getSignerProviderInfo } from '@/@web3/config/signerProviders';
+import { WALLET_STACK_OPTIONS } from '@/@web3/config/walletStack';
+import type { WalletStack } from '@/@web3/types/wallet';
 import { shortenAddress } from '@/utils/format';
 import type { AppScreenContext } from './types';
 

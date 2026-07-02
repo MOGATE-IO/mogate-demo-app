@@ -16,14 +16,14 @@ import {
   getNetworkProfile,
   type AppNetworkMode
 } from '@/config/networkProfiles';
-import { getSignerProviderInfo } from '@/config/signerProviders';
-import { useBalance } from '@/hooks/useBalance';
-import { useGiftcardCatalogue } from '@/hooks/useGiftcardCatalogue';
-import { useUniversalAccountMint } from '@/hooks/useUniversalAccountMint';
-import { useUniversalWallet } from '@/hooks/useUniversalWallet';
-import { PrivyBridge } from '@/providers/privy/PrivyBridge';
+import { getSignerProviderInfo } from '@/@web3/config/signerProviders';
+import { useBalance } from '@/@web3/hooks/useBalance';
+import { useGiftcardCatalogue } from '@/features/catalogue/hooks/useGiftcardCatalogue';
+import { useUniversalAccountMint } from '@/features/checkout/hooks/useUniversalAccountMint';
+import { useUniversalWallet } from '@/@web3/hooks/useUniversalWallet';
+import { PrivyBridge } from '@/@web3/providers/privy/PrivyBridge';
 import { openTransakTopUp } from '@/services/transak';
-import type { WalletAdapter } from '@/types/wallet';
+import type { WalletAdapter } from '@/@web3/types/wallet';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { InventoryScreen } from '@/screens/InventoryScreen';
 import { MintCheckoutScreen } from '@/screens/MintCheckoutScreen';
