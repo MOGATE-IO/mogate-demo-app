@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
 import {
-  FALLBACK_GIFTCARD_CATALOGUE,
   fetchGiftcardCatalogue,
   type GiftcardMerchant
 } from '@/features/catalogue/services/catalogue';
 import { toErrorMessage } from '@/utils/errors';
 
 export function useGiftcardCatalogue(profile: RuntimeNetworkProfile) {
-  const [items, setItems] = useState<GiftcardMerchant[]>(FALLBACK_GIFTCARD_CATALOGUE);
+  const [items, setItems] = useState<GiftcardMerchant[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -24,7 +23,10 @@ export function useGiftcardCatalogue(profile: RuntimeNetworkProfile) {
         const next = await fetchGiftcardCatalogue(profile);
         if (!cancelled) setItems(next);
       } catch (error) {
-        if (!cancelled) setLastError(toErrorMessage(error));
+        if (!cancelled) {
+          setItems([]);
+          setLastError(toErrorMessage(error));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

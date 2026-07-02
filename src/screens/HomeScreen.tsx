@@ -41,6 +41,7 @@ export function HomeScreen({ context }: { context: AppScreenContext }) {
       </View>
 
       <Card title="Trending giftcards" eyebrow="Market pulse">
+        {catalogue.lastError ? <Text style={styles.error}>{catalogue.lastError}</Text> : null}
         {catalogue.trending.map((merchant) => (
           <View key={merchant.id} style={styles.trendingRow}>
             <View style={styles.trendingText}>
@@ -54,6 +55,9 @@ export function HomeScreen({ context }: { context: AppScreenContext }) {
             </Button>
           </View>
         ))}
+        {!catalogue.loading && catalogue.trending.length === 0 && !catalogue.lastError ? (
+          <Text style={styles.muted}>No giftcards returned from the backend catalogue yet.</Text>
+        ) : null}
       </Card>
     </View>
   );

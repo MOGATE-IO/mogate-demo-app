@@ -27,3 +27,11 @@
 - Top-up is optional. Do not tell users they must transfer existing Base/Arbitrum primary assets into a UA address before minting. Solana assets can only be considered when the UA identity exposes a recognized Solana source/address.
 - Same-login/same-address requires the same embedded signer provider and project across web and mobile; Particle UA does not merge EOAs created by different login providers.
 - `0xUA` or deposit addresses must not become the checkout receiver in the in-place product path; `checkout.to` must stay the owner EOA.
+
+## 2026-07-02: Mobile Structure Policy
+
+- Keep `src/@web3` as the future package boundary for wallet providers, wallet stores, wallet types, and UA/Particle execution services.
+- Keep screen files thin. Screens may compose feature hooks and feature UI, but they should not contain API clients, wallet adapters, or large visual trees.
+- Keep feature code isolated under `src/features/<feature>/{components,hooks,services}`. Components receive props and callbacks; hooks/services own handlers, wallet calls, API calls, clipboard, and async state.
+- The handler app and the separate UI/mockup app must share import positions for replaceable UI. The funded giftcard visual slot is `src/features/giftcard/components/GiftcardComponent.tsx`.
+- Do not put mock catalogue rows in the mobile handler app. `/api/giftcards/catalogue` from `EXPO_API_BASE` must provide real merchants, including the Mogate Giftcard 0.1 USD smoke-test product when that product is needed.

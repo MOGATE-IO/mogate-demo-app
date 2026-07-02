@@ -33,7 +33,7 @@ This app uses native modules from Particle and Privy, and will add Dynamic/Magic
 
 React Native Web status:
 
-- `npm --workspace apps/mobile run web` can be used for UI review and catalogue/profile mock flows.
+- `npm --workspace apps/mobile run web` can be used for visual review of the shared screen/component positions.
 - Real Privy React Native login, EIP-7702 authorization signing, Particle native Auth probing, and Privy funding require iOS/Android in an Expo development build.
 - Web mode intentionally mounts a no-native Privy bridge, so UA sends remain blocked there.
 
@@ -74,10 +74,11 @@ EXPO_PUBLIC_DYNAMIC_ENVIRONMENT_ID=
 
 Wallet stack, UA target, API paths, Particle UA config, and gateway addresses are code-level config, not env. Update:
 
-- `src/config/walletStack.ts` for the active signer stack.
+- `src/@web3/config/walletStack.ts` for the active signer stack.
 - `src/config/networkProfiles.ts` for Testnet/Mainnet chain IDs, backend paths, gateway addresses, and onramp defaults.
 
 The mobile client builds checkout, catalogue, reconciliation, Privy onramp, and Transak fallback URLs from `EXPO_API_BASE` plus fixed API paths in `networkProfiles.ts`.
+The catalogue is not mocked in the handler app. `${EXPO_API_BASE}/api/giftcards/catalogue` must return the real merchant list, including the Mogate Giftcard 0.1 USD product when testing that mint path.
 For v2 funded checkouts, the local demo server can also prepare unsigned `checkoutFundedV2` parameters from its `MOGATE_*` config. The user still signs and sends through Particle UA EIP-7702 in-place; the server does not mint with a private key.
 
 `npm --workspace apps/mobile run preflight` reads `.env.example` as safe defaults, then overlays `.env` and shell environment variables. For the current Privy login/top-up milestone, only Privy IDs and `EXPO_API_BASE` are required. Particle UA minting remains blocked until the Particle project and v2 gateway are configured in code.

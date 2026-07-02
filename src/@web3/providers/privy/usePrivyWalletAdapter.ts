@@ -35,8 +35,23 @@ function findEmbeddedEvmAddressFromUser(user: any) {
   return account?.address ?? null;
 }
 
+function findEmbeddedSolanaAddressFromUser(user: any) {
+  const account = user?.linked_accounts?.find(
+    (linked: any) =>
+      linked?.type === 'wallet' &&
+      linked?.chain_type === 'solana' &&
+      linked?.connector_type === 'embedded' &&
+      linked?.address
+  );
+  return account?.address ?? null;
+}
+
 function findEmbeddedSolanaWallet(walletState: any) {
   return walletState?.wallets?.find((wallet: any) => wallet?.address) ?? null;
+}
+
+function findEmbeddedSolanaAddress(user: any, walletState: any) {
+  return findEmbeddedSolanaWallet(walletState)?.address ?? findEmbeddedSolanaAddressFromUser(user) ?? null;
 }
 
 function normalize7702Signature(result: any): HexString {
@@ -92,7 +107,7 @@ export function usePrivyWalletAdapter(): WalletAdapter {
         ownerAddress: null,
         evmUaAddress: null,
         solanaUaAddress: null,
-        linkedSolanaAddress: findEmbeddedSolanaWallet(solanaWallet)?.address ?? null,
+        linkedSolanaAddress: findEmbeddedSolanaAddress(privy.user, solanaWallet),
         balance: null,
         identity: summarizePrivyIdentity({
           user: privy.user,
@@ -127,7 +142,7 @@ export function usePrivyWalletAdapter(): WalletAdapter {
           ownerAddress: null,
           evmUaAddress: null,
           solanaUaAddress: null,
-          linkedSolanaAddress: findEmbeddedSolanaWallet(solanaWallet)?.address ?? null,
+          linkedSolanaAddress: findEmbeddedSolanaAddress(activeUser, solanaWallet),
           balance: null,
           identity: summarizePrivyIdentity({
             user: activeUser,
@@ -149,7 +164,7 @@ export function usePrivyWalletAdapter(): WalletAdapter {
     const provider = wallet ? await wallet.getProvider?.() : null;
     const address =
       provider ? await requestPrivyAddress(provider, wallet) : wallet?.address ?? findEmbeddedEvmAddressFromUser(activeUser);
-    const linkedSolanaAddress = findEmbeddedSolanaWallet(solanaWallet)?.address ?? null;
+    const linkedSolanaAddress = findEmbeddedSolanaAddress(activeUser ?? privy.user, solanaWallet);
 
     return {
       stack: 'privy',
@@ -188,7 +203,7 @@ export function usePrivyWalletAdapter(): WalletAdapter {
     }
 
     const wallet = findEmbeddedEvmWallet(wallets);
-    const linkedSolanaAddress = findEmbeddedSolanaWallet(solanaWallet)?.address ?? null;
+    const linkedSolanaAddress = findEmbeddedSolanaAddress(privy.user, solanaWallet);
     return {
       status: wallet?.address ? 'connected' : 'idle',
       address: wallet?.address ?? null,

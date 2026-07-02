@@ -107,6 +107,13 @@ export function CatalogueBrowser({
           </LinearGradient>
         </Pressable>
       ))}
+      {!loading && merchants.length === 0 ? (
+        <Card title="No catalogue data" eyebrow="Backend">
+          <Text style={styles.muted}>
+            The mobile app is waiting for merchants from the configured API endpoint.
+          </Text>
+        </Card>
+      ) : null}
     </View>
   );
 }
