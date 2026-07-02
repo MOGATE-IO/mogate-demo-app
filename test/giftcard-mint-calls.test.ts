@@ -9,7 +9,7 @@ import {
 import {
   buildGiftcardMintCalls,
   type PreparedUnsafeCheckout
-} from '../src/services/giftcardCheckout';
+} from '../src/features/checkout/services/giftcardCheckout';
 
 const gateway = '0x1111111111111111111111111111111111111111';
 const collection = '0x2222222222222222222222222222222222222222';

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SIGNER_PROVIDER_INFO,
   isProductEip7702Signer
-} from '../src/config/signerProviders';
+} from '../src/@web3/config/signerProviders';
 import { getProductReadinessChecks } from '../src/config/productReadiness';
 import {
   PARTICLE_PRIMARY_ASSETS,
@@ -18,8 +18,8 @@ import {
   getDirectCheckoutTemplate,
   isSameEvmAddress,
   parsePreparedCheckoutJson
-} from '../src/services/giftcardCheckout';
-import { summarizePrivyIdentity } from '../src/providers/privy/privyIdentity';
+} from '../src/features/checkout/services/giftcardCheckout';
+import { summarizePrivyIdentity } from '../src/@web3/providers/privy/privyIdentity';
 
 describe('Particle UA EIP-7702 product invariants', () => {
   it('enables only native-clean embedded EIP-7702 signers for product sends', () => {

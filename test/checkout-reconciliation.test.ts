@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getNetworkProfile } from '../src/config/networkProfiles';
-import type { PreparedUnsafeCheckout } from '../src/services/giftcardCheckout';
+import type { PreparedUnsafeCheckout } from '../src/features/checkout/services/giftcardCheckout';
 
 const checkout = {
   gatewayVersion: 'v2',
@@ -26,7 +26,7 @@ afterEach(() => {
 
 describe('checkout reconciliation service', () => {
   it('skips when no endpoint is configured', async () => {
-    const { reconcileUaMint } = await import('../src/services/checkoutReconciliation');
+    const { reconcileUaMint } = await import('../src/features/checkout/services/checkoutReconciliation');
 
     const result = await reconcileUaMint({
       ownerAddress: checkout.to,
@@ -59,7 +59,7 @@ describe('checkout reconciliation service', () => {
       } as Response;
     });
     vi.stubGlobal('fetch', fetchMock);
-    const { reconcileUaMint } = await import('../src/services/checkoutReconciliation');
+    const { reconcileUaMint } = await import('../src/features/checkout/services/checkoutReconciliation');
 
     const result = await reconcileUaMint({
       ownerAddress: checkout.to,
