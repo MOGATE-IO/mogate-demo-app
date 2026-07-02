@@ -12,8 +12,6 @@ export function HomeScreen({ context }: { context: AppScreenContext }) {
   const { balance, catalogue, profile, topUp, wallet } = context;
   const ownerAddress = wallet.snapshot.ownerAddress || wallet.snapshot.address || '';
   const connected = wallet.snapshot.status === 'connected';
-  const preparingWallet = wallet.adapter?.isReady === false;
-  const connectLabel = preparingWallet ? 'Preparing' : connected ? 'Connected' : 'Connect';
 
   return (
     <View style={styles.stack}>
@@ -23,14 +21,6 @@ export function HomeScreen({ context }: { context: AppScreenContext }) {
         right={<StatusPill status={wallet.snapshot.status === 'error' ? 'error' : wallet.snapshot.status} />}
       >
         <View style={styles.actions}>
-          <Button
-            loading={wallet.snapshot.status === 'connecting'}
-            onPress={wallet.connect}
-            disabled={!wallet.isAdapterReady || connected}
-            variant="primary"
-          >
-            {connectLabel}
-          </Button>
           <Button onPress={wallet.refresh} disabled={!wallet.isAdapterReady || !connected}>
             Refresh
           </Button>

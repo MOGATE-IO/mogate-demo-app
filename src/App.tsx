@@ -27,6 +27,7 @@ import type { WalletAdapter } from '@/types/wallet';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { InventoryScreen } from '@/screens/InventoryScreen';
 import { MintCheckoutScreen } from '@/screens/MintCheckoutScreen';
+import { OnboardingScreen } from '@/screens/OnboardingScreen';
 import { ProfileAboutScreen } from '@/screens/ProfileAboutScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { RequestPaymentScreen } from '@/screens/RequestPaymentScreen';
@@ -187,8 +188,10 @@ function MobileShell({
     ]
   );
 
-  const screen =
-    hiddenRoute === 'checkout' ? (
+  const connected = wallet.snapshot.status === 'connected';
+  const screen = !connected ? (
+    <OnboardingScreen context={context} />
+  ) : hiddenRoute === 'checkout' ? (
       <MintCheckoutScreen context={context} />
     ) : hiddenRoute === 'profile-about' ? (
       <ProfileAboutScreen context={context} />
@@ -230,7 +233,7 @@ function MobileShell({
           ) : null}
           {screen}
         </ScrollView>
-        {hiddenRoute ? null : <BottomTabBar activeTab={activeTab} onChange={goToTab} />}
+        {hiddenRoute || !connected ? null : <BottomTabBar activeTab={activeTab} onChange={goToTab} />}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

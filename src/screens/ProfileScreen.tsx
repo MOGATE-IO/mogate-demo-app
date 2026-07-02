@@ -39,7 +39,6 @@ export function ProfileScreen({ context }: { context: AppScreenContext }) {
   const ownerAddress = context.wallet.snapshot.ownerAddress || context.wallet.snapshot.address || '';
   const solanaAddress =
     context.wallet.snapshot.linkedSolanaAddress || context.wallet.snapshot.solanaUaAddress || '';
-  const connected = context.wallet.snapshot.status === 'connected';
   const portfolio = useWalletPortfolio({
     evmAddress: ownerAddress,
     solanaAddress
@@ -73,15 +72,7 @@ export function ProfileScreen({ context }: { context: AppScreenContext }) {
         right={<StatusPill status={context.wallet.snapshot.status === 'connected' ? 'ready' : context.wallet.snapshot.status} />}
       >
         <View style={styles.actions}>
-          <Button
-            loading={context.wallet.snapshot.status === 'connecting'}
-            onPress={context.wallet.connect}
-            disabled={!context.wallet.isAdapterReady || connected}
-            variant="primary"
-          >
-            {connected ? 'Connected' : 'Connect'}
-          </Button>
-          <Button onPress={context.wallet.refresh} disabled={!connected}>
+          <Button onPress={context.wallet.refresh}>
             Refresh
           </Button>
           <Button onPress={context.goToProfileAbout} variant="quiet">
