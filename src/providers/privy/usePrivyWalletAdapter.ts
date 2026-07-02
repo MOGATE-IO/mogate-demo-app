@@ -8,6 +8,7 @@ import {
   useSign7702Authorization
 } from '@privy-io/expo';
 import { useFundWallet } from '@privy-io/expo/ui';
+import { arbitrum, arbitrumSepolia, base, baseSepolia, mainnet, sepolia } from '@privy-io/chains';
 import { Signature } from 'ethers';
 
 import type {
@@ -62,6 +63,16 @@ async function requestPrivyAddress(provider: any, wallet: any) {
       method: 'eth_requestAccounts'
     })) ?? [];
   return wallet?.address ?? accounts[0] ?? null;
+}
+
+function getFundingChain(chainId?: number) {
+  if (chainId === arbitrum.id) return arbitrum;
+  if (chainId === arbitrumSepolia.id) return arbitrumSepolia;
+  if (chainId === base.id) return base;
+  if (chainId === baseSepolia.id) return baseSepolia;
+  if (chainId === sepolia.id) return sepolia;
+  if (chainId === mainnet.id) return mainnet;
+  return undefined;
 }
 
 export function usePrivyWalletAdapter(): WalletAdapter {
@@ -254,22 +265,7 @@ export function usePrivyWalletAdapter(): WalletAdapter {
           address: request.address,
           amount: request.amount,
           asset: request.asset ?? 'USDC',
-          chain: request.chainId
-            ? ({
-                id: request.chainId,
-                name: request.chainLabel ?? `Chain ${request.chainId}`,
-                nativeCurrency: {
-                  decimals: 18,
-                  name: 'Ether',
-                  symbol: 'ETH'
-                },
-                rpcUrls: {
-                  default: {
-                    http: []
-                  }
-                }
-              } as any)
-            : undefined,
+          chain: getFundingChain(request.chainId),
           defaultPaymentMethod: 'card',
           card: {
             preferredProvider: 'moonpay'

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -27,12 +27,14 @@ import type { WalletAdapter } from '@/types/wallet';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { InventoryScreen } from '@/screens/InventoryScreen';
 import { MintCheckoutScreen } from '@/screens/MintCheckoutScreen';
+import { ProfileAboutScreen } from '@/screens/ProfileAboutScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { RequestPaymentScreen } from '@/screens/RequestPaymentScreen';
 import { SearchScreen } from '@/screens/SearchScreen';
 import type { AppScreenContext, CheckoutSelection } from '@/screens/types';
+import { toErrorMessage } from '@/utils/errors';
 
-type HiddenRoute = 'checkout' | null;
+type HiddenRoute = 'checkout' | 'profile-about' | null;
 
 export default function App() {
   const [networkMode, setNetworkMode] = useState<AppNetworkMode>(DEFAULT_NETWORK_MODE);
@@ -70,6 +72,10 @@ function MobileShell({
   const [activeTab, setActiveTab] = useState<MainTab>('home');
   const [hiddenRoute, setHiddenRoute] = useState<HiddenRoute>(null);
   const [checkoutSelection, setCheckoutSelection] = useState<CheckoutSelection | null>(null);
+  const [topUpStatus, setTopUpStatus] = useState<AppScreenContext['topUpStatus']>({
+    status: 'idle',
+    message: null
+  });
   const wallet = useUniversalWallet({ privyAdapter });
   const balance = useBalance();
   const catalogue = useGiftcardCatalogue(profile);
@@ -89,29 +95,50 @@ function MobileShell({
       : null
   });
 
-  async function topUp() {
+  const topUp = useCallback(async () => {
     const ownerAddress = wallet.snapshot.ownerAddress || wallet.snapshot.address || '';
     if (!ownerAddress) return;
 
-    if (profile.onramp.primaryProvider === 'privy' && wallet.adapter?.fundWallet) {
-      await wallet.adapter.fundWallet({
-        address: ownerAddress,
-        amount: profile.onramp.defaultAmount,
-        asset: profile.onramp.defaultAsset,
-        chainId: profile.ua.targetChainId,
-        chainLabel: profile.ua.chainLabel,
-        sandbox: profile.mode === 'testnet'
-      });
-      return;
-    }
-
-    await openTransakTopUp({
-      profile,
-      walletAddress: ownerAddress,
-      fiatAmount: profile.onramp.defaultAmount,
-      partnerOrderId: `mogate-mobile-${profile.mode}-${Date.now()}`
+    setTopUpStatus({
+      status: 'opening',
+      message: `Opening ${profile.onramp.primaryProvider} USDC top-up for ${profile.ua.chainLabel}.`
     });
-  }
+
+    try {
+      if (profile.onramp.primaryProvider === 'privy' && wallet.adapter?.fundWallet) {
+        await wallet.adapter.fundWallet({
+          address: ownerAddress,
+          amount: profile.onramp.defaultAmount,
+          asset: profile.onramp.defaultAsset,
+          chainId: profile.ua.targetChainId,
+          chainLabel: profile.ua.chainLabel,
+          sandbox: profile.mode === 'testnet'
+        });
+        setTopUpStatus({
+          status: 'success',
+          message: 'Top-up flow opened. Funds can take a few minutes to arrive after provider confirmation.'
+        });
+        await wallet.refresh();
+        return;
+      }
+
+      await openTransakTopUp({
+        profile,
+        walletAddress: ownerAddress,
+        fiatAmount: profile.onramp.defaultAmount,
+        partnerOrderId: `mogate-mobile-${profile.mode}-${Date.now()}`
+      });
+      setTopUpStatus({
+        status: 'success',
+        message: 'Fallback top-up opened.'
+      });
+    } catch (error) {
+      setTopUpStatus({
+        status: 'error',
+        message: toErrorMessage(error)
+      });
+    }
+  }, [profile, wallet]);
 
   function goToTab(tab: MainTab) {
     setHiddenRoute(null);
@@ -121,6 +148,11 @@ function MobileShell({
   function goToCheckout(selection: CheckoutSelection) {
     setCheckoutSelection(selection);
     setHiddenRoute('checkout');
+  }
+
+  function goToProfileAbout() {
+    setActiveTab('profile');
+    setHiddenRoute('profile-about');
   }
 
   const context = useMemo<AppScreenContext>(
@@ -133,8 +165,10 @@ function MobileShell({
       catalogue,
       mint,
       productSignerReady,
+      topUpStatus,
       topUp,
       goToTab,
+      goToProfileAbout,
       goToCheckout,
       checkoutSelection
     }),
@@ -147,6 +181,8 @@ function MobileShell({
       productSignerReady,
       profile,
       setNetworkMode,
+      topUp,
+      topUpStatus,
       wallet
     ]
   );
@@ -154,6 +190,8 @@ function MobileShell({
   const screen =
     hiddenRoute === 'checkout' ? (
       <MintCheckoutScreen context={context} />
+    ) : hiddenRoute === 'profile-about' ? (
+      <ProfileAboutScreen context={context} />
     ) : activeTab === 'home' ? (
       <HomeScreen context={context} />
     ) : activeTab === 'search' ? (

@@ -12,6 +12,9 @@ const config: ExpoConfig = {
     bundleIdentifier: 'io.mogate.ua.lab',
     supportsTablet: true,
     usesAppleSignIn: true,
+    entitlements: {
+      'keychain-access-groups': ['$(AppIdentifierPrefix)io.mogate.ua.lab']
+    },
     infoPlist: {
       NSFaceIDUsageDescription: 'Mogate uses Face ID to protect wallet signing sessions.'
     }

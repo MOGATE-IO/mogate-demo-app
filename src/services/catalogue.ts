@@ -16,6 +16,19 @@ export type GiftcardMerchant = {
 
 export const FALLBACK_GIFTCARD_CATALOGUE: GiftcardMerchant[] = [
   {
+    id: 'mogate',
+    name: 'Mogate Giftcard',
+    category: 'Mogate',
+    description: 'Tiny funded giftcard smoke test for the UA Arbitrum checkout path.',
+    heroColor: ['#ffffff', '#fff1c9', '#dff2ff'],
+    availableAmounts: [0.1, 1, 5, 10],
+    currency: 'USD',
+    views: 2100,
+    recentPurchases: 64,
+    trendingRank: 1,
+    chains: ['Arbitrum']
+  },
+  {
     id: 'wholefoods',
     name: 'Whole Foods',
     category: 'Groceries',
@@ -25,7 +38,7 @@ export const FALLBACK_GIFTCARD_CATALOGUE: GiftcardMerchant[] = [
     currency: 'USD',
     views: 1280,
     recentPurchases: 48,
-    trendingRank: 1,
+    trendingRank: 2,
     chains: ['Arbitrum', 'Base']
   },
   {
@@ -38,7 +51,7 @@ export const FALLBACK_GIFTCARD_CATALOGUE: GiftcardMerchant[] = [
     currency: 'USD',
     views: 940,
     recentPurchases: 35,
-    trendingRank: 2,
+    trendingRank: 3,
     chains: ['Arbitrum']
   },
   {
@@ -51,7 +64,7 @@ export const FALLBACK_GIFTCARD_CATALOGUE: GiftcardMerchant[] = [
     currency: 'USD',
     views: 870,
     recentPurchases: 29,
-    trendingRank: 3,
+    trendingRank: 4,
     chains: ['Arbitrum', 'Ethereum']
   },
   {
@@ -88,6 +101,12 @@ function normalizeMerchant(raw: any): GiftcardMerchant {
   };
 }
 
+function ensureLocalSmokeTest(items: GiftcardMerchant[]) {
+  const hasMogate = items.some((item) => item.id === 'mogate');
+  if (hasMogate) return items;
+  return [FALLBACK_GIFTCARD_CATALOGUE[0], ...items];
+}
+
 export async function fetchGiftcardCatalogue(profile: RuntimeNetworkProfile): Promise<GiftcardMerchant[]> {
   if (!profile.catalogueEndpoint) return FALLBACK_GIFTCARD_CATALOGUE;
 
@@ -99,5 +118,5 @@ export async function fetchGiftcardCatalogue(profile: RuntimeNetworkProfile): Pr
   const body = (await response.json()) as any;
   const rows = Array.isArray(body) ? body : body.items ?? body.merchants ?? body.catalogue ?? [];
   if (!Array.isArray(rows)) return FALLBACK_GIFTCARD_CATALOGUE;
-  return rows.map(normalizeMerchant);
+  return ensureLocalSmokeTest(rows.map(normalizeMerchant));
 }

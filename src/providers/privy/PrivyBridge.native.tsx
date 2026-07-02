@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PrivyProvider } from '@privy-io/expo';
+import { PrivyElements } from '@privy-io/expo/ui';
 
 import { hasPrivyProfileConfig, type RuntimeNetworkProfile } from '@/config/networkProfiles';
 import type { WalletAdapter } from '@/types/wallet';
@@ -31,6 +32,14 @@ export function PrivyBridge({ children, profile }: PrivyBridgeProps) {
         }
       }}
     >
+      <PrivyElements
+        config={{
+          appearance: {
+            accentColor: '#171512',
+            colorScheme: 'light'
+          }
+        }}
+      />
       <PrivyBound>{children}</PrivyBound>
     </PrivyProvider>
   );

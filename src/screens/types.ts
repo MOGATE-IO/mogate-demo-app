@@ -20,8 +20,13 @@ export type AppScreenContext = {
   catalogue: ReturnType<typeof useGiftcardCatalogue>;
   mint: ReturnType<typeof useUniversalAccountMint>;
   productSignerReady: boolean;
+  topUpStatus: {
+    status: 'idle' | 'opening' | 'success' | 'error';
+    message: string | null;
+  };
   topUp: () => Promise<void>;
   goToTab: (tab: MainTab) => void;
   goToCheckout: (selection: CheckoutSelection) => void;
+  goToProfileAbout: () => void;
   checkoutSelection: CheckoutSelection | null;
 };
