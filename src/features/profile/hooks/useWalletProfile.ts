@@ -20,6 +20,7 @@ export function useWalletProfile(input: {
   ownerAddress?: string | null;
   linkedSolanaAddress?: string | null;
   solanaUaAddress?: string | null;
+  identityWarnings?: string[];
   uaBalanceDisplay: string;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export function useWalletProfile(input: {
     stablecoinTotal,
     toggleNetwork,
     copyAddress,
+    identityWarnings: input.identityWarnings ?? [],
     uaBalanceDisplay: input.uaBalanceDisplay
   };
 }

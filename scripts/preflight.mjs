@@ -3,15 +3,17 @@ import { resolve } from 'node:path';
 
 const CURRENT_WALLET_STACK = 'privy';
 const API_PATHS = {
-  checkout: '/api/checkouts/unsafe-arbitrum',
+  checkoutInit: '/giftcard/checkout/init',
+  checkout: '/giftcard/checkout/create',
   checkoutReconcile: '/api/checkouts/reconcile',
-  catalogue: '/api/giftcards/catalogue',
+  catalogue: '/mogate/giftcard/brands',
   privyOnrampSession: '/api/privy/onramp/session',
   transakSession: '/api/transak/session'
 };
-const MAINNET_PROFILE = {
-  targetChainId: 42161,
-  allowUnlistedTestnet: false,
+const ACTIVE_PROFILE = {
+  mode: 'testnet',
+  targetChainId: 11155111,
+  allowUnlistedTestnet: true,
   expectedPrimaryAsset: '',
   particle: {
     projectId: '',
@@ -139,15 +141,15 @@ function checkPrimaryAsset(assetInput, targetChainId, allowUnlistedTestnet) {
 
 function buildChecks(env) {
   const stack = CURRENT_WALLET_STACK;
-  const targetChainId = MAINNET_PROFILE.targetChainId;
-  const allowUnlistedTestnet = MAINNET_PROFILE.allowUnlistedTestnet;
-  const gatewayVersion = MAINNET_PROFILE.gateway.version;
+  const targetChainId = ACTIVE_PROFILE.targetChainId;
+  const allowUnlistedTestnet = ACTIVE_PROFILE.allowUnlistedTestnet;
+  const gatewayVersion = ACTIVE_PROFILE.gateway.version;
   const apiBase = env.EXPO_API_BASE || 'http://localhost:4000';
 
   const particleReady =
-    hasValue(MAINNET_PROFILE.particle.projectId) &&
-    hasValue(MAINNET_PROFILE.particle.clientKey) &&
-    hasValue(MAINNET_PROFILE.particle.appId);
+    hasValue(env.EXPO_PUBLIC_PARTICLE_PROJECT_ID) &&
+    hasValue(env.EXPO_PUBLIC_PARTICLE_CLIENT_KEY) &&
+    hasValue(env.EXPO_PUBLIC_PARTICLE_APP_ID);
 
   const signerReady = PRODUCT_SIGNERS.has(stack);
   const signerDetail = signerReady
@@ -163,11 +165,11 @@ function buildChecks(env) {
         : 'Fill EXPO_PUBLIC_PRIVY_APP_ID and EXPO_PUBLIC_PRIVY_CLIENT_ID.'
       : `${stack} is gated by the signer check before provider project config matters.`;
 
-  const chainReady = PUBLIC_PARTICLE_UA_CHAIN_IDS.has(targetChainId) || allowUnlistedTestnet;
+  const chainReady = PUBLIC_PARTICLE_UA_CHAIN_IDS.has(targetChainId);
   const v2Ready =
     gatewayVersion !== 'v2' ||
-    (isAddress(MAINNET_PROFILE.gateway.v2Address) &&
-      isAddress(MAINNET_PROFILE.gateway.fundedCollection));
+    (isAddress(ACTIVE_PROFILE.gateway.v2Address) &&
+      isAddress(ACTIVE_PROFILE.gateway.fundedCollection));
 
   return [
     check(
@@ -176,7 +178,7 @@ function buildChecks(env) {
       particleReady,
       particleReady
         ? 'Particle project ID, client key, and app ID are configured.'
-        : 'Configure the Particle UA project in apps/mobile/src/config/networkProfiles.ts when UA minting resumes.'
+        : 'Configure EXPO_PUBLIC_PARTICLE_PROJECT_ID, EXPO_PUBLIC_PARTICLE_CLIENT_KEY, and EXPO_PUBLIC_PARTICLE_APP_ID when UA minting resumes.'
     ),
     check('signer', 'EIP-7702 signer', signerReady, signerDetail),
     check('signer-project', 'Signer project', signerProjectReady, signerProjectDetail),
@@ -186,11 +188,9 @@ function buildChecks(env) {
       chainReady,
       PUBLIC_PARTICLE_UA_CHAIN_IDS.has(targetChainId)
         ? `Chain ${targetChainId} is publicly listed by Particle UA.`
-        : allowUnlistedTestnet
-          ? `Chain ${targetChainId} is enabled by local testnet override. Use only after Particle dashboard/SDK confirmation.`
-          : `Chain ${targetChainId} is not publicly listed. Confirm testnet support before enabling the code-level testnet override.`
+        : `Particle UA SDK 2.x does not support chain ${targetChainId}. Keep this testnet profile in direct mode.`
     ),
-    checkPrimaryAsset(MAINNET_PROFILE.expectedPrimaryAsset, targetChainId, allowUnlistedTestnet),
+    checkPrimaryAsset(ACTIVE_PROFILE.expectedPrimaryAsset, targetChainId, allowUnlistedTestnet),
     check(
       'gateway',
       `${gatewayVersion} gateway`,

@@ -26,7 +26,7 @@ export function getProductReadinessChecks(
 ): ProductReadinessCheck[] {
   const provider = getSignerProviderInfo(stack);
   const publicUaChain = isPublicParticleUaChain(profile.ua.targetChainId);
-  const chainAllowed = publicUaChain || profile.ua.allowUnlistedTestnet;
+  const chainAllowed = publicUaChain;
   const assetSupport = describeParticlePrimaryAssetConfig({
     chainId: profile.ua.targetChainId,
     asset: profile.ua.expectTokenType,
@@ -71,9 +71,7 @@ export function getProductReadinessChecks(
       status: chainAllowed ? 'ready' : 'blocked',
       detail: publicUaChain
         ? `Chain ${profile.ua.targetChainId} is publicly listed by Particle UA.`
-        : profile.ua.allowUnlistedTestnet
-          ? `Chain ${profile.ua.targetChainId} is locally allowed for dashboard-confirmed testnet proof.`
-          : `Chain ${profile.ua.targetChainId} is not publicly listed. Confirm in Particle dashboard/SDK before enabling sends.`
+        : `Particle UA SDK 2.x does not support chain ${profile.ua.targetChainId}. Keep this testnet profile in direct mode.`
     },
     {
       id: 'primary-asset',

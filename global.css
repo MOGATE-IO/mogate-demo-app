@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+@import 'uniwind';
+@import 'heroui-native/styles';
+
+@source '../../node_modules/heroui-native/lib';
+@source './src';
+
+@layer theme {
+  :root {
+    @variant light {
+      --background: oklch(0.9702 0 0);
+      --foreground: oklch(0.2103 0.0059 285.89);
+      --surface: oklch(1 0 0);
+      --surface-secondary: oklch(0.9524 0.0013 286.37);
+      --surface-tertiary: oklch(0.9373 0.0013 286.37);
+      --muted: oklch(0.5517 0.0138 285.94);
+      --default: oklch(0.94 0.001 286.375);
+      --accent: oklch(0.665 0.1804 47.04);
+      --accent-foreground: oklch(1 0 0);
+      --focus: var(--accent);
+      --border: oklch(0.90 0.004 286.32);
+      --separator: oklch(0.88 0.004 286.32);
+      --radius: 0.5rem;
+      --field-radius: 0.5rem;
+      --field-border-width: 1px;
+    }
+
+    @variant dark {
+      --accent: oklch(0.72 0.16 47.04);
+      --accent-foreground: oklch(0.12 0 0);
+      --focus: var(--accent);
+      --radius: 0.5rem;
+      --field-radius: 0.5rem;
+      --field-border-width: 1px;
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Mogate UA Mobile Lab
 
-Expo proof-of-concept for Particle Network Universal Accounts in strict EIP-7702 in-place mode. The default path boots on Mainnet/Arbitrum One and targets the new v2 atomic mint/fund/reserve gateway, with the existing Arbitrum Sepolia `AuthorityMintGateway.unsafeCheckout` kept as the manual v0 proof fallback.
+Expo proof-of-concept for Particle Network Universal Accounts in strict EIP-7702 in-place mode. The current default path boots on Testnet/Arbitrum Sepolia and targets the new v2 atomic mint/fund/reserve gateway once configured, with the existing Arbitrum Sepolia `AuthorityMintGateway.unsafeCheckout` kept as the manual v0 proof fallback.
 
 This app is a nested independent git repo under the parent UA lab workspace. Keep mobile history local to `apps/mobile` unless the parent repo is intentionally converted to a formal submodule.
 
@@ -78,7 +78,7 @@ Wallet stack, UA target, API paths, Particle UA config, and gateway addresses ar
 - `src/config/networkProfiles.ts` for Testnet/Mainnet chain IDs, backend paths, gateway addresses, and onramp defaults.
 
 The mobile client builds checkout, catalogue, reconciliation, Privy onramp, and Transak fallback URLs from `EXPO_API_BASE` plus fixed API paths in `networkProfiles.ts`.
-The catalogue is not mocked in the handler app. `${EXPO_API_BASE}/api/giftcards/catalogue` must return the real merchant list, including the Mogate Giftcard 0.1 USD product when testing that mint path.
+The catalogue is not mocked in the handler app. `${EXPO_API_BASE}/mogate/giftcard/brands` must return the real merchant list, including the Mogate Giftcard 0.1 USD product when testing that mint path.
 For v2 funded checkouts, the local demo server can also prepare unsigned `checkoutFundedV2` parameters from its `MOGATE_*` config. The user still signs and sends through Particle UA EIP-7702 in-place; the server does not mint with a private key.
 
 `npm --workspace apps/mobile run preflight` reads `.env.example` as safe defaults, then overlays `.env` and shell environment variables. For the current Privy login/top-up milestone, only Privy IDs and `EXPO_API_BASE` are required. Particle UA minting remains blocked until the Particle project and v2 gateway are configured in code.
@@ -156,7 +156,7 @@ The current deployed v0 gateway mints an unknown token ID into the encrypted col
 
 ## Known Blockers To Prove
 
-- Testnet/Sepolia UA sends require explicit Particle dashboard/SDK proof before use. Mainnet/Arbitrum One is the default profile.
+- Testnet/Sepolia UA sends require explicit Particle dashboard/SDK proof before use. The mobile demo currently defaults to Testnet/Arbitrum Sepolia; Mainnet/Arbitrum One remains a manual profile switch.
 - If the selected signer does not expose EIP-7702 authorization signing, the app stops with a wallet capability blocker. Do not fall back to smart-account mode for this proof.
 - Magic is intentionally blocked and not installed in the default app until its Expo RN package tree is native-clean for this SDK.
 - Dynamic is intentionally blocked until the RN WaaS connector is wired and verified.

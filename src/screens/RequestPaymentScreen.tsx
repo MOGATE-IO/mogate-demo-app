@@ -20,7 +20,12 @@ export function RequestPaymentScreen({ context }: { context: AppScreenContext })
 
   return (
     <View style={styles.stack}>
-      <Card title="Request payment" eyebrow={context.profile.label}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Request</Text>
+        <Text style={styles.subtitle}>Create a simple payment request.</Text>
+      </View>
+
+      <Card title="Request payment">
         <InfoRow label="Recipient" value={shortenAddress(ownerAddress)} mono />
         <Text style={styles.label}>Amount</Text>
         <TextInput
@@ -52,7 +57,6 @@ export function RequestPaymentScreen({ context }: { context: AppScreenContext })
           <InfoRow label="Request ID" value={requestId} mono />
           <InfoRow label="Amount" value={`$${amount} USD`} />
           <InfoRow label="Memo" value={memo} />
-          <InfoRow label="Settlement" value={`${context.profile.ua.chainLabel} giftcard checkout`} />
         </Card>
       ) : null}
     </View>
@@ -62,6 +66,21 @@ export function RequestPaymentScreen({ context }: { context: AppScreenContext })
 const styles = StyleSheet.create({
   stack: {
     gap: 14
+  },
+  header: {
+    gap: 4,
+    paddingTop: 4
+  },
+  title: {
+    color: '#171512',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: 0
+  },
+  subtitle: {
+    color: '#8b857d',
+    fontSize: 15,
+    lineHeight: 21
   },
   label: {
     color: '#7d746a',

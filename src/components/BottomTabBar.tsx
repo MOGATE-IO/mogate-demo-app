@@ -1,13 +1,22 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Button, Surface } from 'heroui-native';
+import {
+  HandCoins,
+  House,
+  Search,
+  UserRound,
+  WalletCards,
+  type LucideIcon
+} from 'lucide-react-native';
+import { StyleSheet } from 'react-native';
 
 export type MainTab = 'home' | 'search' | 'request' | 'inventory' | 'profile';
 
-const TAB_LABELS: Record<MainTab, string> = {
-  home: 'Home',
-  search: 'Search',
-  request: 'Request',
-  inventory: 'Inventory',
-  profile: 'Profile'
+const TABS: Record<MainTab, { label: string; Icon: LucideIcon }> = {
+  home: { label: 'Home', Icon: House },
+  search: { label: 'Search', Icon: Search },
+  request: { label: 'Request', Icon: HandCoins },
+  inventory: { label: 'Cards', Icon: WalletCards },
+  profile: { label: 'Profile', Icon: UserRound }
 };
 
 type BottomTabBarProps = {
@@ -16,68 +25,57 @@ type BottomTabBarProps = {
 };
 
 export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
-  const tabs = Object.keys(TAB_LABELS) as MainTab[];
+  const tabs = Object.keys(TABS) as MainTab[];
 
   return (
-    <View style={styles.bar}>
+    <Surface className="rounded-lg border border-border bg-surface shadow-surface" style={styles.bar}>
       {tabs.map((tab) => {
         const active = activeTab === tab;
+        const { Icon, label } = TABS[tab];
+
         return (
-          <Pressable
+          <Button
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
+            className={
+              active
+                ? 'h-14 flex-1 flex-col gap-1 rounded-lg bg-accent-soft px-1 py-2'
+                : 'h-14 flex-1 flex-col gap-1 rounded-lg px-1 py-2'
+            }
             key={tab}
             onPress={() => onChange(tab)}
-            style={styles.item}
+            size="sm"
+            variant="ghost"
           >
-            <View style={[styles.dot, active && styles.dotActive]} />
-            <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>
-              {TAB_LABELS[tab]}
-            </Text>
-          </Pressable>
+            <Icon
+              color={active ? '#e9680c' : '#71717a'}
+              size={20}
+              strokeWidth={active ? 2.4 : 2}
+            />
+            <Button.Label
+              className={
+                active
+                  ? 'text-[10px] font-semibold text-accent'
+                  : 'text-[10px] font-medium text-muted'
+              }
+              numberOfLines={1}
+            >
+              {label}
+            </Button.Label>
+          </Button>
         );
       })}
-    </View>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#ddd6ca',
-    borderRadius: 18,
-    borderWidth: 1,
     flexDirection: 'row',
-    gap: 4,
-    marginHorizontal: 12,
-    marginBottom: 10,
-    padding: 6
-  },
-  item: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 4,
-    minHeight: 52,
-    justifyContent: 'center'
-  },
-  dot: {
-    backgroundColor: '#d8d0c4',
-    borderRadius: 999,
-    height: 6,
-    width: 6
-  },
-  dotActive: {
-    backgroundColor: '#171512',
-    height: 8,
-    width: 18
-  },
-  label: {
-    color: '#756d62',
-    fontSize: 11,
-    fontWeight: '800'
-  },
-  labelActive: {
-    color: '#171512'
+    gap: 2,
+    marginBottom: 12,
+    marginHorizontal: 20,
+    padding: 4
   }
 });

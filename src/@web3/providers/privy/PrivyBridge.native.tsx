@@ -28,6 +28,9 @@ export function PrivyBridge({ children, profile }: PrivyBridgeProps) {
         embedded: {
           ethereum: {
             createOnLogin: 'users-without-wallets'
+          },
+          solana: {
+            createOnLogin: 'users-without-wallets'
           }
         }
       }}

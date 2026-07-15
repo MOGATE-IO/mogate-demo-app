@@ -10,7 +10,8 @@ module.exports = function (api) {
             '@': './src'
           }
         }
-      ]
+      ],
+      'react-native-worklets/plugin'
     ]
   };
 };

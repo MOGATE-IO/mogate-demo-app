@@ -54,6 +54,33 @@ function findEmbeddedSolanaAddress(user: any, walletState: any) {
   return findEmbeddedSolanaWallet(walletState)?.address ?? findEmbeddedSolanaAddressFromUser(user) ?? null;
 }
 
+function getSolanaProviderAddress(provider: any) {
+  if (!provider) return null;
+  if (typeof provider.address === 'string') return provider.address;
+  if (typeof provider.publicKey === 'string') return provider.publicKey;
+  if (typeof provider.publicKey?.toBase58 === 'function') return provider.publicKey.toBase58();
+  return null;
+}
+
+async function ensureEmbeddedSolanaAddress(user: any, walletState: any) {
+  const existing = findEmbeddedSolanaAddress(user, walletState);
+  if (existing) return existing;
+  if (typeof walletState?.create !== 'function') return null;
+
+  const created = await walletState.create().catch(() => null);
+  const createdAddress = getSolanaProviderAddress(created);
+  if (createdAddress) return createdAddress;
+
+  const provider = await walletState.getProvider?.().catch(() => null);
+  return getSolanaProviderAddress(provider) ?? findEmbeddedSolanaAddress(user, walletState);
+}
+
+function getSolanaWalletError(walletState: any) {
+  const error = walletState?.error;
+  if (!error) return null;
+  return typeof error === 'string' ? error : error.message ?? String(error);
+}
+
 function normalize7702Signature(result: any): HexString {
   const authorization = result?.data?.authorization ?? result?.authorization ?? result;
   const signature = authorization?.signature ?? authorization;
@@ -112,7 +139,9 @@ export function usePrivyWalletAdapter(): WalletAdapter {
         identity: summarizePrivyIdentity({
           user: privy.user,
           evmWallets: wallets,
-          solanaWallets: solanaWallet?.wallets
+          solanaWallets: solanaWallet?.wallets,
+          solanaWalletStatus: solanaWallet?.status,
+          solanaWalletError: getSolanaWalletError(solanaWallet)
         }),
         capabilities: {
           eip712: 'unknown',
@@ -147,7 +176,9 @@ export function usePrivyWalletAdapter(): WalletAdapter {
           identity: summarizePrivyIdentity({
             user: activeUser,
             evmWallets: wallets,
-            solanaWallets: solanaWallet?.wallets
+            solanaWallets: solanaWallet?.wallets,
+            solanaWalletStatus: solanaWallet?.status,
+            solanaWalletError: getSolanaWalletError(solanaWallet)
           }),
           capabilities: {
             eip712: 'unknown',
@@ -164,7 +195,7 @@ export function usePrivyWalletAdapter(): WalletAdapter {
     const provider = wallet ? await wallet.getProvider?.() : null;
     const address =
       provider ? await requestPrivyAddress(provider, wallet) : wallet?.address ?? findEmbeddedEvmAddressFromUser(activeUser);
-    const linkedSolanaAddress = findEmbeddedSolanaAddress(activeUser ?? privy.user, solanaWallet);
+    const linkedSolanaAddress = await ensureEmbeddedSolanaAddress(activeUser ?? privy.user, solanaWallet);
 
     return {
       stack: 'privy',
@@ -178,7 +209,9 @@ export function usePrivyWalletAdapter(): WalletAdapter {
       identity: summarizePrivyIdentity({
         user: activeUser ?? privy.user,
         evmWallets: wallets,
-        solanaWallets: solanaWallet?.wallets
+        solanaWallets: solanaWallet?.wallets,
+        solanaWalletStatus: solanaWallet?.status,
+        solanaWalletError: getSolanaWalletError(solanaWallet)
       }),
       capabilities: {
         eip712: provider ? 'supported' : 'unknown',
@@ -212,7 +245,9 @@ export function usePrivyWalletAdapter(): WalletAdapter {
       identity: summarizePrivyIdentity({
         user: privy.user,
         evmWallets: wallets,
-        solanaWallets: solanaWallet?.wallets
+        solanaWallets: solanaWallet?.wallets,
+        solanaWalletStatus: solanaWallet?.status,
+        solanaWalletError: getSolanaWalletError(solanaWallet)
       }),
       capabilities: {
         eip712: wallet ? 'supported' : 'unknown',

@@ -22,11 +22,13 @@ import {
   type CheckoutReconciliationStatus
 } from '@/features/checkout/services/checkoutReconciliation';
 import {
-  executeUaUnsafeCheckout,
   probeUniversalAccount,
-  type UaMintResult,
   type UaProbeResult
 } from '@/@web3/services/particleUniversalAccount';
+import {
+  pay,
+  type GiftcardPaymentResult
+} from '@/features/checkout/services/giftcardPayment';
 
 type MintStage =
   | 'idle'
@@ -36,6 +38,15 @@ type MintStage =
   | 'ua-ready'
   | 'building'
   | 'sent'
+  | 'error';
+
+export type CheckoutExecutionStep =
+  | 'idle'
+  | 'preparing'
+  | 'confirming-payment'
+  | 'minting'
+  | 'reconciling'
+  | 'complete'
   | 'error';
 
 export type MintGate = {
@@ -50,14 +61,18 @@ export function useUniversalAccountMint(input: {
   adapter?: WalletAdapter | null;
   profile?: RuntimeNetworkProfile;
   intent?: GiftcardCheckoutIntent | null;
+  receiverAddress?: string | null;
+  paymentMode?: 'direct' | 'ua7702';
 }) {
   const profile = input.profile ?? getDefaultNetworkProfile();
-  const receiver = input.wallet.ownerAddress || input.wallet.address || '';
+  const paymentMode = input.paymentMode ?? 'direct';
+  const receiver = input.receiverAddress?.trim() || input.wallet.ownerAddress || input.wallet.address || '';
   const [stage, setStage] = useState<MintStage>('idle');
+  const [executionStep, setExecutionStep] = useState<CheckoutExecutionStep>('idle');
   const [checkoutJson, setCheckoutJson] = useState(() => getDirectCheckoutTemplate(receiver, profile));
   const [preparedCheckout, setPreparedCheckout] = useState<PreparedUnsafeCheckout | null>(null);
   const [uaProbe, setUaProbe] = useState<UaProbeResult | null>(null);
-  const [mintResult, setMintResult] = useState<UaMintResult | null>(null);
+  const [mintResult, setMintResult] = useState<GiftcardPaymentResult | null>(null);
   const [reconciliation, setReconciliation] = useState<CheckoutReconciliationStatus>({
     status: 'idle',
     detail: 'Mint has not been reconciled yet.'
@@ -67,11 +82,29 @@ export function useUniversalAccountMint(input: {
   const resetError = useCallback(() => setLastError(null), []);
 
   useEffect(() => {
-    if (stage !== 'idle' && stage !== 'error') return;
     setCheckoutJson(getDirectCheckoutTemplate(receiver, profile));
     setPreparedCheckout(null);
     setMintResult(null);
-  }, [profile, receiver, stage]);
+    setReconciliation({
+      status: 'idle',
+      detail: 'Mint has not been reconciled yet.'
+    });
+    setStage('idle');
+    setExecutionStep('idle');
+  }, [
+    input.intent?.amountDisplay,
+    input.intent?.autoMint,
+    input.intent?.autoUnwrap,
+    input.intent?.couponCode,
+    input.intent?.giftcardMode,
+    input.intent?.mintMode,
+    input.intent?.network,
+    input.intent?.region,
+    input.intent?.reserveGas,
+    paymentMode,
+    profile,
+    receiver
+  ]);
 
   const parseCheckout = useCallback(() => {
     resetError();
@@ -88,6 +121,7 @@ export function useUniversalAccountMint(input: {
   const loadCheckoutFromBackend = useCallback(async () => {
     resetError();
     setStage('loading-checkout');
+    setExecutionStep('preparing');
     try {
       if (!receiver) throw new Error('Connect a wallet before preparing checkout.');
       const checkout = await fetchPreparedCheckout(receiver, profile, input.intent);
@@ -98,9 +132,11 @@ export function useUniversalAccountMint(input: {
         })
       );
       setStage('checkout-ready');
+      setExecutionStep('idle');
     } catch (error) {
       setLastError(toErrorMessage(error));
       setStage('error');
+      setExecutionStep('error');
     }
   }, [input.intent, profile, receiver, resetError]);
 
@@ -122,34 +158,45 @@ export function useUniversalAccountMint(input: {
   const executeMint = useCallback(async () => {
     resetError();
     setStage('building');
+    setExecutionStep('confirming-payment');
     try {
       const ownerAddress = input.wallet.ownerAddress || input.wallet.address;
-      if (!ownerAddress) throw new Error('Connect a wallet before sending UA transaction.');
+      if (!ownerAddress) throw new Error('Connect a wallet before paying.');
       if (!input.adapter) throw new Error('Wallet adapter is not mounted.');
-      if (!isProductEip7702Signer(input.wallet.stack)) {
+      if (paymentMode === 'ua7702' && !isProductEip7702Signer(input.wallet.stack)) {
         const provider = getSignerProviderInfo(input.wallet.stack);
         throw new Error(
           `${provider.label} readiness is ${provider.readiness}, so UA EIP-7702 mint is disabled for product sends. ${provider.setupNote}`
         );
       }
-      if (!input.adapter.sign7702Authorization) {
+      if (paymentMode === 'ua7702' && !input.adapter.sign7702Authorization) {
         throw new Error(
           'UA EIP-7702 mint requires an embedded signer that can sign EIP-7702 authorizations. Use Privy, Magic, or Dynamic after its 7702 adapter is enabled.'
         );
       }
-      if (!isPublicParticleUaChain(profile.ua.targetChainId) && !profile.ua.allowUnlistedTestnet) {
+      if (
+        paymentMode === 'ua7702' &&
+        !isPublicParticleUaChain(profile.ua.targetChainId)
+      ) {
         throw new Error(
-          `Particle public UA docs do not list chain ${profile.ua.targetChainId}. Enable the code-level testnet override only after dashboard/SDK confirms support.`
+          `Particle UA SDK 2.x does not support chain ${profile.ua.targetChainId}. Keep this testnet checkout in direct mode and enable UA7702 on a supported mainnet.`
         );
       }
       const checkout = preparedCheckout ?? parsePreparedCheckoutJson(checkoutJson, receiver, profile);
-      assertCheckoutReceiverIsOwner(checkout, ownerAddress);
-      const result = await executeUaUnsafeCheckout({
+      if (paymentMode === 'ua7702') {
+        assertCheckoutReceiverIsOwner(checkout, ownerAddress);
+      }
+      const result = await pay({
+        amount: checkout.amountAtomic,
+        tokenAddress: checkout.paymentToken,
+        ua7702: paymentMode === 'ua7702',
         ownerAddress,
         wallet: input.adapter,
         checkout,
-        profile
+        profile,
+        onProgress: setExecutionStep
       });
+      setExecutionStep('reconciling');
       const reconciliationResult = await reconcileUaMint({
         ownerAddress,
         checkout,
@@ -160,9 +207,11 @@ export function useUniversalAccountMint(input: {
       setMintResult(result);
       setReconciliation(reconciliationResult);
       setStage('sent');
+      setExecutionStep('complete');
     } catch (error) {
       setLastError(toErrorMessage(error));
       setStage('error');
+      setExecutionStep('error');
     }
   }, [
     checkoutJson,
@@ -171,10 +220,17 @@ export function useUniversalAccountMint(input: {
     input.wallet.ownerAddress,
     input.wallet.stack,
     preparedCheckout,
+    paymentMode,
     profile,
     receiver,
     resetError
   ]);
+
+  const dismissExecutionError = useCallback(() => {
+    setLastError(null);
+    setExecutionStep('idle');
+    setStage(preparedCheckout ? 'checkout-ready' : 'idle');
+  }, [preparedCheckout]);
 
   const gates = useMemo<MintGate[]>(() => {
     const connected = input.wallet.status === 'connected';
@@ -182,41 +238,55 @@ export function useUniversalAccountMint(input: {
     const productSigner = isProductEip7702Signer(input.wallet.stack);
     const signerCapable = Boolean(input.adapter?.sign7702Authorization);
     const uaCapable = connected && productSigner && signerCapable;
+    const directCapable = connected && Boolean(input.adapter?.getProvider);
     const hasCheckout = Boolean(preparedCheckout);
-    const checkoutOwnerMatch = preparedCheckout ? isSameEvmAddress(preparedCheckout.to, receiver) : false;
+    const checkoutReceiverMatch = preparedCheckout ? isSameEvmAddress(preparedCheckout.to, receiver) : false;
     const publicUaChain = isPublicParticleUaChain(profile.ua.targetChainId);
-    const testnetAllowed = profile.ua.allowUnlistedTestnet;
 
     return [
       {
         id: 'wallet',
-        label: 'Gate 1: EIP-7702 signer',
-        status: connected && uaCapable && uaProbe ? 'done' : connected && uaCapable ? 'ready' : connected ? 'blocked' : 'idle',
+        label: paymentMode === 'direct' ? 'Gate 1: Direct wallet' : 'Gate 1: EIP-7702 signer',
+        status: paymentMode === 'direct'
+          ? directCapable ? 'ready' : connected ? 'blocked' : 'idle'
+          : connected && uaCapable && uaProbe ? 'done' : connected && uaCapable ? 'ready' : connected ? 'blocked' : 'idle',
         detail: connected
-          ? uaCapable
-            ? `${provider.label} is ready. Probe Particle UA in-place routing next.`
-            : `${provider.label} readiness is ${provider.readiness}. ${provider.setupNote}`
+          ? paymentMode === 'direct'
+            ? directCapable
+              ? `${provider.label} can send the target-chain checkout directly.`
+              : `${provider.label} does not expose an EVM provider for direct payment.`
+            : uaCapable
+              ? `${provider.label} is ready. Probe Particle UA in-place routing next.`
+              : `${provider.label} readiness is ${provider.readiness}. ${provider.setupNote}`
           : 'Connect an embedded EOA signer first.'
       },
       {
         id: 'in-place',
-        label: 'Gate 2: In-place owner',
-        status: preparedCheckout && !checkoutOwnerMatch ? 'blocked' : receiver && connected ? 'ready' : 'idle',
-        detail: preparedCheckout && !checkoutOwnerMatch
-          ? `Prepared checkout receiver ${preparedCheckout.to.slice(0, 6)}...${preparedCheckout.to.slice(-4)} does not match owner EOA ${receiver.slice(0, 6)}...${receiver.slice(-4)}.`
+        label: paymentMode === 'direct' ? 'Gate 2: Receiver' : 'Gate 2: In-place owner',
+        status: preparedCheckout && !checkoutReceiverMatch ? 'blocked' : receiver && connected ? 'ready' : 'idle',
+        detail: preparedCheckout && !checkoutReceiverMatch
+          ? `Prepared checkout receiver ${preparedCheckout.to.slice(0, 6)}...${preparedCheckout.to.slice(-4)} does not match ${receiver.slice(0, 6)}...${receiver.slice(-4)}.`
           : receiver
-          ? `NFT receiver and payment executor stay on the owner EOA ${receiver.slice(0, 6)}...${receiver.slice(-4)}.`
-          : 'Owner EOA is not available yet.'
+            ? paymentMode === 'direct'
+              ? `The giftcard will mint to ${receiver.slice(0, 6)}...${receiver.slice(-4)}.`
+              : `NFT receiver and payment executor stay on the owner EOA ${receiver.slice(0, 6)}...${receiver.slice(-4)}.`
+            : 'Receiver is not available yet.'
       },
       {
         id: 'mint',
-        label: `Gate 3: ${profile.ua.chainLabel} ${profile.gateway.version} mint`,
-        status: mintResult ? 'done' : hasCheckout && connected && uaCapable && checkoutOwnerMatch ? 'ready' : hasCheckout && !checkoutOwnerMatch ? 'blocked' : 'idle',
+        label: `Gate 3: ${profile.ua.chainLabel} ${preparedCheckout?.gatewayVersion ?? profile.gateway.version} mint`,
+        status: mintResult
+          ? 'done'
+          : hasCheckout && connected && (paymentMode === 'direct' ? directCapable : uaCapable) && checkoutReceiverMatch
+            ? 'ready'
+            : hasCheckout && !checkoutReceiverMatch ? 'blocked' : 'idle',
         detail: mintResult
-          ? `UA transaction sent${mintResult.tokenId ? `, token ${mintResult.tokenId}` : ''}.`
+          ? `${paymentMode === 'direct' ? 'Direct' : 'UA'} transaction sent${mintResult.tokenId ? `, token ${mintResult.tokenId}` : ''}.`
           : hasCheckout
-            ? checkoutOwnerMatch
-              ? 'Prepared checkout loaded. Particle UA will route supported primary assets and execute from the delegated EOA.'
+            ? checkoutReceiverMatch
+              ? paymentMode === 'direct'
+                ? 'Prepared checkout loaded. Payment uses target-chain USDC only.'
+                : 'Prepared checkout loaded. Particle UA will route supported primary assets and execute from the delegated EOA.'
               : 'Prepared checkout is loaded for a different receiver. Regenerate checkout for the connected owner EOA.'
             : 'Load backend checkout or paste prepared JSON.'
       },
@@ -231,18 +301,19 @@ export function useUniversalAccountMint(input: {
       {
         id: 'testnet',
         label: 'UA chain support',
-        status: publicUaChain || testnetAllowed ? 'ready' : 'blocked',
-        detail: publicUaChain
-          ? `Target chain ${profile.ua.targetChainId} is in Particle public UA docs.`
-          : testnetAllowed
-            ? `Target chain ${profile.ua.targetChainId} is unlisted publicly, but the local testnet override is enabled.`
-            : `Particle public UA docs list mainnet chains only. Chain ${profile.ua.targetChainId} needs dashboard/SDK confirmation before sending.`
+        status: paymentMode === 'direct' || publicUaChain ? 'ready' : 'blocked',
+        detail: paymentMode === 'direct'
+          ? 'UA routing is not used in the current direct-payment phase.'
+          : publicUaChain
+            ? `Target chain ${profile.ua.targetChainId} is supported by Particle UA SDK 2.x.`
+            : `Particle UA SDK 2.x supports listed mainnets only. Keep chain ${profile.ua.targetChainId} in direct mode.`
       }
     ];
-  }, [input.adapter, input.wallet.stack, input.wallet.status, mintResult, preparedCheckout, profile, receiver, uaProbe]);
+  }, [input.adapter, input.wallet.stack, input.wallet.status, mintResult, paymentMode, preparedCheckout, profile, receiver, uaProbe]);
 
   return {
     stage,
+    executionStep,
     checkoutJson,
     setCheckoutJson,
     preparedCheckout,
@@ -255,7 +326,8 @@ export function useUniversalAccountMint(input: {
     parseCheckout,
     loadCheckoutFromBackend,
     probeUa,
-    executeMint
+    executeMint,
+    dismissExecutionError
   };
 }
 

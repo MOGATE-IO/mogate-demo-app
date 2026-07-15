@@ -1,8 +1,8 @@
 import { Signature } from 'ethers';
 import type {
-  Eip7702Authorization,
-  ExpectToken,
-  UniversalAccountTransaction
+  EIP7702Authorization,
+  IExpectToken,
+  ITransaction
 } from '@particle-network/universal-account-sdk';
 
 import {
@@ -10,7 +10,7 @@ import {
   hasParticleProjectConfig,
   type RuntimeNetworkProfile
 } from '@/config/networkProfiles';
-import type { WalletAdapter } from '@/@web3/types/wallet';
+import type { UnifiedBalance, WalletAdapter } from '@/@web3/types/wallet';
 import { CapabilityBlockedError } from '@/utils/errors';
 
 import type { PreparedUnsafeCheckout } from '@/features/checkout/services/giftcardCheckout';
@@ -23,14 +23,14 @@ export type UaProbeResult = {
   ownerAddress?: string | null;
   evmUaAddress?: string | null;
   solanaUaAddress?: string | null;
-  primaryAssets?: Record<string, unknown> | null;
+  primaryAssets?: UnifiedBalance | null;
   deployments?: Record<string, unknown>[] | null;
 };
 
 export type UaMintResult = {
-  transaction: UniversalAccountTransaction;
+  transaction: ITransaction;
   result: Record<string, unknown>;
-  authorizations: Eip7702Authorization[];
+  authorizations: EIP7702Authorization[];
   tokenId?: string;
   universalXUrl?: string;
 };
@@ -53,7 +53,6 @@ export async function createUniversalAccount(
     projectId: credentials.projectId,
     projectClientKey: credentials.clientKey,
     projectAppUuid: credentials.appId,
-    ownerAddress,
     smartAccountOptions: {
       useEIP7702: true,
       name: 'UNIVERSAL',
@@ -62,7 +61,11 @@ export async function createUniversalAccount(
     },
     tradeConfig: {
       slippageBps: 100,
-      universalGas: true
+      preferTokenType: sdk.PREFER_TOKEN_TYPE.USD,
+      usePrimaryTokens: [
+        sdk.SUPPORTED_TOKEN_TYPE.USDC,
+        sdk.SUPPORTED_TOKEN_TYPE.USDT
+      ]
     }
   });
 }
@@ -102,7 +105,7 @@ async function buildExpectTokens(
   sdk: { SUPPORTED_TOKEN_TYPE?: Record<string, string> },
   checkout: PreparedUnsafeCheckout,
   profile: RuntimeNetworkProfile = getDefaultNetworkProfile()
-): Promise<ExpectToken[]> {
+): Promise<IExpectToken[]> {
   if (!profile.ua.expectTokenType) return [];
 
   const tokenTypeKey = profile.ua.expectTokenType.toUpperCase();
@@ -112,7 +115,7 @@ async function buildExpectTokens(
 
   return [
     {
-      type: tokenType as ExpectToken['type'],
+      type: tokenType as IExpectToken['type'],
       amount
     }
   ];
@@ -120,9 +123,9 @@ async function buildExpectTokens(
 
 async function signEip7702Authorizations(
   wallet: WalletAdapter,
-  transaction: UniversalAccountTransaction
+  transaction: ITransaction
 ) {
-  const authorizations: Eip7702Authorization[] = [];
+  const authorizations: EIP7702Authorization[] = [];
   const nonceSignatures = new Map<string, string>();
 
   for (const userOp of transaction.userOps ?? []) {

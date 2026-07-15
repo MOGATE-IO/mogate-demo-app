@@ -52,7 +52,7 @@ describe('Particle UA EIP-7702 product invariants', () => {
     expect(checks['particle-config']?.status).toBe('blocked');
     expect(checks.signer?.status).toBe('ready');
     expect(checks['signer-config']?.status).toBe('blocked');
-    expect(checks.chain?.status).toBe('ready');
+    expect(checks.chain?.status).toBe('blocked');
     expect(checks.gateway?.status).toBe('blocked');
   });
 

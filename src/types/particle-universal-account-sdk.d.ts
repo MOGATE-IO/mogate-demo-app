@@ -3,79 +3,43 @@ declare module '@particle-network/universal-account-sdk' {
     ETH = 'eth',
     USDT = 'usdt',
     USDC = 'usdc',
-    BTC = 'btc',
     BNB = 'bnb',
     SOL = 'sol'
   }
 
-  export enum SOLANA_ACCOUNT_INDEX {
-    CLASSIC = 1,
-    EIP7702 = 11
+  export enum PREFER_TOKEN_TYPE {
+    USD = 0,
+    NATIVE = 1
   }
 
   export const UNIVERSAL_ACCOUNT_VERSION: string;
 
-  export type EvmUniversalTransaction = {
-    to: string;
-    data: string;
-    value?: string;
-  };
-
-  export type SolanaUniversalTransaction = {
-    accounts: Array<{
-      pubkey: string;
-      isSigner: boolean;
-      isWritable: boolean;
-    }>;
-    programId: string;
-    data: string;
-  };
-
-  export type UniversalTransactionCall = EvmUniversalTransaction | SolanaUniversalTransaction;
-
-  export type UniversalAccountConfig = {
-    projectId: string;
-    projectClientKey: string;
-    projectAppUuid: string;
-    ownerAddress?: string;
-    smartAccountOptions?: {
-      name: string;
-      version: string;
-      ownerAddress: string;
-      smartAccountAddress?: string;
-      solanaSmartAccountAddress?: string;
-      useEIP7702?: boolean;
-      solanaAccountIndex?: SOLANA_ACCOUNT_INDEX;
-      options?: unknown;
-    };
-    tradeConfig?: {
-      slippageBps?: number;
-      universalGas?: boolean;
-      usePrimaryTokens?: SUPPORTED_TOKEN_TYPE[];
-      [key: string]: unknown;
-    };
-    rpcUrl?: string;
-  };
-
-  export type ExpectToken = {
+  export type IExpectToken = {
     type: SUPPORTED_TOKEN_TYPE;
     amount: string;
   };
 
-  export type UniversalTransactionPayload = {
-    chainId: number;
-    expectTokens: ExpectToken[];
-    transactions: UniversalTransactionCall[];
+  export type IUniversalAccountConfig = {
+    projectId: string;
+    projectClientKey: string;
+    projectAppUuid: string;
+    smartAccountOptions?: {
+      name: string;
+      version: string;
+      ownerAddress: string;
+      useEIP7702?: boolean;
+    };
+    tradeConfig?: {
+      slippageBps?: number;
+      usePrimaryTokens?: SUPPORTED_TOKEN_TYPE[];
+      preferTokenType?: PREFER_TOKEN_TYPE;
+    };
+    rpcUrl?: string;
   };
 
-  export type Eip7702Authorization = {
-    userOpHash: string;
-    signature: string;
-  };
-
-  export type UniversalAccountTransaction = {
+  export type ITransaction = {
     rootHash: string;
-    transactionId?: string;
+    transactionId: string;
     userOps: Array<{
       chainId: number;
       userOpHash: string;
@@ -90,17 +54,29 @@ declare module '@particle-network/universal-account-sdk' {
     [key: string]: unknown;
   };
 
+  export type EIP7702Authorization = {
+    userOpHash: string;
+    signature: string;
+  };
+
   export class UniversalAccount {
-    constructor(args: UniversalAccountConfig);
+    constructor(config: IUniversalAccountConfig);
     getSmartAccountOptions(): Promise<Record<string, unknown>>;
-    getPrimaryAssets(): Promise<Record<string, unknown>>;
+    getPrimaryAssets(): Promise<any>;
     getEIP7702Deployments(): Promise<Record<string, unknown>[]>;
-    getEIP7702Auth(chainIds: number[]): Promise<Record<string, unknown>>;
-    createUniversalTransaction(args: UniversalTransactionPayload): Promise<UniversalAccountTransaction>;
+    createUniversalTransaction(payload: {
+      chainId: number;
+      expectTokens: IExpectToken[];
+      transactions: Array<{
+        to: string;
+        data: string;
+        value?: string;
+      }>;
+    }): Promise<ITransaction>;
     sendTransaction(
-      transaction: UniversalAccountTransaction,
+      transaction: ITransaction,
       signature: string,
-      authorizations?: Eip7702Authorization[]
-    ): Promise<Record<string, unknown>>;
+      authorizations?: EIP7702Authorization[]
+    ): Promise<Record<string, any>>;
   }
 }

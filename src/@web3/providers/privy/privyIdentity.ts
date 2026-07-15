@@ -31,6 +31,24 @@ function accountSubject(account: Record<string, any>) {
   return subject == null ? null : `${account.type}:${subject}`;
 }
 
+function accountDisplayName(account: Record<string, any>) {
+  const email = typeof account.email === 'string' ? account.email : null;
+  const username =
+    typeof account.username === 'string'
+      ? account.username
+      : typeof account.name === 'string'
+        ? account.name
+        : typeof account.display_name === 'string'
+          ? account.display_name
+          : null;
+
+  if (account.type === 'twitter_oauth' && username) {
+    return username.startsWith('@') ? username : `@${username}`;
+  }
+  if (username && account.type !== 'google_oauth' && account.type !== 'email') return username;
+  return email;
+}
+
 function embeddedWalletAddress(account: Record<string, any>, chainType: 'ethereum' | 'solana') {
   if (account.type !== 'wallet') return null;
   if (account.connector_type !== 'embedded') return null;
@@ -43,10 +61,13 @@ export function summarizePrivyIdentity(input: {
   user?: Record<string, any> | null;
   evmWallets?: Array<Record<string, any>>;
   solanaWallets?: Array<Record<string, any>>;
+  solanaWalletStatus?: string | null;
+  solanaWalletError?: string | null;
 }): WalletIdentitySnapshot {
   const linkedAccounts = (input.user?.linked_accounts ?? []) as Array<Record<string, any>>;
   const linkedAccountTypes = unique(linkedAccounts.map(accountLabel));
   const loginMethods = linkedAccountTypes.filter((type) => LOGIN_ACCOUNT_TYPES.has(type));
+  const displayNames = unique(linkedAccounts.map(accountDisplayName));
   const oauthSubjects = unique(linkedAccounts.map(accountSubject));
   const oauthEmails = unique(
     linkedAccounts.map((account) => {
@@ -71,6 +92,12 @@ export function summarizePrivyIdentity(input: {
   if (!input.user?.id) warnings.push('No Privy user ID is available yet.');
   if (loginMethods.length === 0) warnings.push('No linked login method is visible on this user.');
   if (embeddedEvmWallets.length === 0) warnings.push('No embedded EVM wallet is visible on this user.');
+  if (embeddedSolanaWallets.length === 0) {
+    warnings.push(
+      `No embedded Solana wallet is visible on this user. Privy Solana hook status: ${input.solanaWalletStatus || 'unknown'}.`
+    );
+  }
+  if (input.solanaWalletError) warnings.push(`Privy Solana wallet error: ${input.solanaWalletError}`);
   if (embeddedEvmWallets.length > 1) warnings.push('Multiple embedded EVM wallets are linked; confirm which wallet index web uses.');
   if (oauthSubjects.length > 1) warnings.push('Multiple login subjects are linked; account-linking rules may affect address continuity.');
 
@@ -78,6 +105,7 @@ export function summarizePrivyIdentity(input: {
     provider: 'privy',
     providerUserId: input.user?.id ?? null,
     providerUserCreatedAt: input.user?.created_at ?? null,
+    displayNames,
     linkedAccountTypes,
     loginMethods,
     oauthSubjects,

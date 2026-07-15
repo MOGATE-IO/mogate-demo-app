@@ -1,7 +1,7 @@
 import { getDefaultNetworkProfile, type RuntimeNetworkProfile } from '@/config/networkProfiles';
 
 import type { PreparedUnsafeCheckout } from './giftcardCheckout';
-import type { UaMintResult } from '@/@web3/services/particleUniversalAccount';
+import type { GiftcardPaymentResult } from './giftcardPayment';
 
 export type CheckoutReconciliationStatus =
   | {
@@ -34,7 +34,7 @@ function findTransactionHash(value: any): string {
   return candidates.find((candidate) => typeof candidate === 'string' && /^0x[a-fA-F0-9]{64}$/.test(candidate)) ?? '';
 }
 
-function findTransactionId(result: UaMintResult) {
+function findTransactionId(result: GiftcardPaymentResult) {
   const value = result.result as Record<string, any>;
   return String(value.transactionId ?? value.id ?? '');
 }
@@ -42,7 +42,7 @@ function findTransactionId(result: UaMintResult) {
 export async function reconcileUaMint(input: {
   ownerAddress: string;
   checkout: PreparedUnsafeCheckout;
-  mintResult: UaMintResult;
+  mintResult: GiftcardPaymentResult;
   profile?: RuntimeNetworkProfile;
 }): Promise<CheckoutReconciliationStatus> {
   const profile = input.profile ?? getDefaultNetworkProfile();
@@ -68,7 +68,8 @@ export async function reconcileUaMint(input: {
     tokenId: input.mintResult.tokenId || undefined,
     transactionId: transactionId || undefined,
     transactionHash: transactionHash || undefined,
-    universalXUrl: input.mintResult.universalXUrl
+    universalXUrl: input.mintResult.universalXUrl,
+    paymentMode: input.mintResult.mode
   };
 
   const response = await fetch(profile.checkoutReconcileEndpoint, {

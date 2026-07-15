@@ -1,5 +1,6 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Card as HeroCard, Typography } from 'heroui-native';
+import { StyleSheet, View } from 'react-native';
 
 type CardProps = PropsWithChildren<{
   title?: string;
@@ -9,30 +10,28 @@ type CardProps = PropsWithChildren<{
 
 export function Card({ children, eyebrow, right, title }: CardProps) {
   return (
-    <View style={styles.card}>
+    <HeroCard className="gap-3 rounded-lg border border-border bg-surface p-4 shadow-none">
       {(title || eyebrow || right) && (
         <View style={styles.header}>
           <View style={styles.headerText}>
-            {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-            {title ? <Text style={styles.title}>{title}</Text> : null}
+            {eyebrow ? (
+              <Typography color="muted" type="body-xs" weight="semibold">
+                {eyebrow}
+              </Typography>
+            ) : null}
+            {title ? (
+              <HeroCard.Title className="text-lg font-semibold">{title}</HeroCard.Title>
+            ) : null}
           </View>
           {right}
         </View>
       )}
       {children}
-    </View>
+    </HeroCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e3ddd3',
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    gap: 12
-  },
   header: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -42,17 +41,5 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     gap: 3
-  },
-  eyebrow: {
-    color: '#8b7461',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0,
-    textTransform: 'uppercase'
-  },
-  title: {
-    color: '#171512',
-    fontSize: 17,
-    fontWeight: '800'
   }
 });

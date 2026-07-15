@@ -6,7 +6,7 @@ const config: ExpoConfig = {
   scheme: 'mogate-ua',
   version: '0.0.1',
   orientation: 'portrait',
-  userInterfaceStyle: 'dark',
+  userInterfaceStyle: 'light',
   platforms: ['ios', 'android', 'web'],
   ios: {
     bundleIdentifier: 'io.mogate.ua.lab',
@@ -44,7 +44,7 @@ const config: ExpoConfig = {
   extra: {
     apiBase: process.env.EXPO_API_BASE ?? 'http://localhost:4000',
     currentWalletStack: 'privy',
-    defaultNetworkMode: 'mainnet'
+    defaultNetworkMode: 'testnet'
   }
 };
 

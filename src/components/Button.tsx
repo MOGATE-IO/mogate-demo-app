@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { Button as HeroButton } from 'heroui-native';
+import { ActivityIndicator } from 'react-native';
 
 type ButtonProps = PropsWithChildren<{
   onPress?: () => void | Promise<void>;
@@ -8,6 +9,13 @@ type ButtonProps = PropsWithChildren<{
   loading?: boolean;
 }>;
 
+const VARIANT_MAP = {
+  primary: 'primary',
+  secondary: 'secondary',
+  quiet: 'ghost',
+  danger: 'danger-soft'
+} as const;
+
 export function Button({
   children,
   disabled,
@@ -15,78 +23,23 @@ export function Button({
   onPress,
   variant = 'secondary'
 }: ButtonProps) {
-  const textStyle = styles[`${variant}Text` as const];
-  const spinnerColor = variant === 'primary' ? '#ffffff' : '#171512';
+  const spinnerColor = variant === 'primary' ? '#ffffff' : '#18181b';
 
   return (
-    <Pressable
+    <HeroButton
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled || loading), busy: Boolean(loading) }}
-      disabled={disabled || loading}
+      className="min-h-11 rounded-lg px-4"
+      isDisabled={disabled || loading}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.base,
-        styles[variant],
-        (disabled || loading) && styles.disabled,
-        pressed && !disabled && !loading && styles.pressed
-      ]}
+      size="md"
+      variant={VARIANT_MAP[variant]}
     >
       {loading ? (
         <ActivityIndicator color={spinnerColor} />
       ) : (
-        <Text style={[styles.text, textStyle]}>{children}</Text>
+        <HeroButton.Label>{children}</HeroButton.Label>
       )}
-    </Pressable>
+    </HeroButton>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10
-  },
-  primary: {
-    backgroundColor: '#171512'
-  },
-  secondary: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e1dbd0'
-  },
-  quiet: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#e1dbd0'
-  },
-  danger: {
-    backgroundColor: '#fff0ee',
-    borderWidth: 1,
-    borderColor: '#f1b5ad'
-  },
-  disabled: {
-    opacity: 0.45
-  },
-  pressed: {
-    transform: [{ translateY: 1 }]
-  },
-  text: {
-    fontSize: 14,
-    fontWeight: '700'
-  },
-  primaryText: {
-    color: '#ffffff'
-  },
-  secondaryText: {
-    color: '#171512'
-  },
-  quietText: {
-    color: '#59524a'
-  },
-  dangerText: {
-    color: '#a3372d'
-  }
-});

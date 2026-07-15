@@ -13,11 +13,25 @@ export type UniversalWalletAddresses = {
   linkedSolanaAddress?: string | null;
 };
 
+export type UnifiedChainToken = {
+  chainId?: number;
+  address?: string;
+  symbol?: string;
+  name?: string;
+};
+
+export type UnifiedChainAssetBreakdown = {
+  token?: UnifiedChainToken;
+  amount?: string | number;
+  amountInUSD?: string | number;
+  rawAmount?: string | number;
+};
+
 export type UnifiedAssetBreakdown = {
   tokenType?: string;
   amount?: string | number;
   amountInUSD?: string | number;
-  chainAggregation?: unknown[];
+  chainAggregation?: UnifiedChainAssetBreakdown[];
 };
 
 export type UnifiedBalance = {
@@ -36,6 +50,7 @@ export type WalletIdentitySnapshot = {
   provider: WalletStack;
   providerUserId?: string | null;
   providerUserCreatedAt?: number | null;
+  displayNames: string[];
   linkedAccountTypes: string[];
   loginMethods: string[];
   oauthSubjects: string[];

@@ -57,7 +57,7 @@ describe('v2 giftcard mint transaction builder', () => {
   it('builds payment approval, funding approval, and checkout call for ERC20 funded mint', () => {
     const calls = buildGiftcardMintCalls(checkout());
 
-    expect(calls.chainId).toBe(42161);
+    expect(calls.chainId).toBe(11155111);
     expect(calls.transactions).toHaveLength(3);
 
     const paymentApproval = approvalInterface.decodeFunctionData(

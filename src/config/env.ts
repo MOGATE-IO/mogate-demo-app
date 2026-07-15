@@ -22,6 +22,14 @@ export const MOBILE_ENV = {
   },
   dynamic: {
     environmentId: readEnv('EXPO_PUBLIC_DYNAMIC_ENVIRONMENT_ID')
+  },
+  particle: {
+    projectId: readEnv('EXPO_PUBLIC_PARTICLE_PROJECT_ID'),
+    clientKey: readEnv('EXPO_PUBLIC_PARTICLE_CLIENT_KEY'),
+    appId: readEnv('EXPO_PUBLIC_PARTICLE_APP_ID'),
+    env: readEnv('EXPO_PUBLIC_PARTICLE_ENV', 'production') === 'staging'
+      ? 'staging'
+      : 'production'
   }
 } as const;
 
