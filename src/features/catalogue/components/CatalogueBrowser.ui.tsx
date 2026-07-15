@@ -10,9 +10,9 @@ import {
   Typography
 } from 'heroui-native';
 import { ChevronRight, CircleAlert, RotateCw } from 'lucide-react-native';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SvgUri } from 'react-native-svg';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { BrandImage } from '@/components/BrandImage.ui';
 import { HeroBottomSheet } from '@/components/HeroBottomSheet.ui';
 import type { GiftcardMerchant } from '@/features/catalogue/services/catalogue';
 import { formatRegionLabel } from '@/utils/regions';
@@ -444,35 +444,28 @@ function MerchantImage({
   large?: boolean;
   merchant: GiftcardMerchant;
 }) {
-  const uri = typeof merchant.imageUrl === 'string' && /^https?:\/\//.test(merchant.imageUrl)
-    ? merchant.imageUrl
-    : null;
-  const svg = Boolean(uri && /\.svg(?:\?|#|$)/i.test(uri));
   const useBrandBackground = /mogate/i.test(merchant.name);
 
   return (
     <View
       style={[
         styles.logoFrame,
-        uri && styles.logoFrameRemote,
+        merchant.imageUrl && styles.logoFrameRemote,
         useBrandBackground && styles.logoFrameBrand,
         large && styles.logoFrameLarge
       ]}
     >
-      {uri && svg ? (
-        <SvgUri height={large ? 44 : 36} uri={uri} width={large ? 44 : 36} />
-      ) : uri ? (
-        <Image
-          accessibilityIgnoresInvertColors
-          resizeMode="contain"
-          source={{ uri }}
-          style={[styles.logoImage, large && styles.logoImageLarge]}
-        />
-      ) : (
-        <Text style={[styles.logoFallback, large && styles.logoFallbackLarge]}>
-          {merchant.name.slice(0, 2).toUpperCase()}
-        </Text>
-      )}
+      <BrandImage
+        accessibilityLabel={`${merchant.name} logo`}
+        fallback={(
+          <Text style={[styles.logoFallback, large && styles.logoFallbackLarge]}>
+            {merchant.name.slice(0, 2).toUpperCase()}
+          </Text>
+        )}
+        height={large ? 44 : 36}
+        source={merchant.imageUrl}
+        width={large ? 44 : 36}
+      />
     </View>
   );
 }

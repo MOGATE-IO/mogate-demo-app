@@ -22,7 +22,11 @@ const config: ExpoConfig = {
   android: {
     package: 'io.mogate.ua.lab'
   },
+  web: {
+    bundler: 'metro'
+  },
   plugins: [
+    'expo-router',
     'expo-apple-authentication',
     'expo-dev-client',
     'expo-secure-store',
@@ -41,6 +45,9 @@ const config: ExpoConfig = {
       }
     ]
   ],
+  experiments: {
+    typedRoutes: true
+  },
   extra: {
     apiBase: process.env.EXPO_API_BASE ?? 'http://localhost:4000',
     currentWalletStack: 'privy',

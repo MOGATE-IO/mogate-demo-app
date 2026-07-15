@@ -31,6 +31,21 @@ npm --workspace apps/mobile run start:dev-client
 
 This app uses native modules from Particle and Privy, and will add Dynamic/Magic only through development builds. Expo Go is not enough.
 
+## Architecture
+
+Expo Router owns navigation while the application code remains split by responsibility:
+
+- `app/` contains route and layout adapters only. The five persistent routes live under `app/(tabs)`; onboarding, mint checkout, profile detail, and not-found screens live in the root stack.
+- `src/screens/` composes feature hooks and UI props. Screens do not own the navigation container, wallet adapters, or API implementations.
+- `src/features/<feature>/components/*.ui.tsx` owns presentation. Hooks own interaction state and handlers; services own data mapping, API calls, and transaction preparation.
+- `src/@web3/` remains the wallet/Particle boundary and is independent from route and visual component choices.
+- `src/hooks/useMobileAppController.ts` composes shared product state above the Router stack so changing tabs does not recreate wallet, catalogue, balance, or inventory state.
+- `src/navigation/` owns route names and tab-to-path mappings. The bottom tab bar is replaceable UI under `src/components/BottomTabBar.ui.tsx`.
+
+The custom `entrypoint.js` loads wallet crypto polyfills before registering `expo-router/entry`. Keep that order for development builds.
+
+Shared frontend visuals preserve their paths under mobile `assets`: frontend `public/+logos`, `public/external`, and `public/images` map to `assets/+logos`, `assets/external`, and `assets/images`. SVG stays SVG; raster files stay in their original formats. API-provided frontend paths are translated into native image sources by the brand-asset resolver instead of by feature handlers.
+
 React Native Web status:
 
 - `npm --workspace apps/mobile run web` can be used for visual review of the shared screen/component positions.

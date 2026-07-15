@@ -21,8 +21,8 @@ import {
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import EthereumLogo from '../../../../assets/svg/ethereum-eth-logo.svg';
-import SolanaLogo from '../../../../assets/svg/solana-sol-logo.svg';
+import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
+import SolanaLogo from '@assets/images/network/solana-sol-logo.svg';
 import type { WalletProfileState } from '@/features/profile/hooks/useWalletProfile';
 import { getAccountAvatarLabel } from '@/features/profile/utils/accountDisplay';
 

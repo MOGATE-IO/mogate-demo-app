@@ -24,16 +24,15 @@ import {
 } from 'lucide-react-native';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   View
 } from 'react-native';
-import { SvgUri } from 'react-native-svg';
 
-import EthereumLogo from '../../../../assets/svg/ethereum-eth-logo.svg';
+import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
+import { BrandImage } from '@/components/BrandImage.ui';
 import { HeroBottomSheet } from '@/components/HeroBottomSheet.ui';
 import type { GiftcardInventoryState } from '@/features/inventory/hooks/useGiftcardInventory';
 import type { GiftcardInventoryItem } from '@/features/inventory/services/giftcardInventory';
@@ -199,16 +198,13 @@ function GiftcardCard({ item, onPress }: { item: GiftcardInventoryItem; onPress:
 }
 
 function RemoteLogo({ item }: { item: GiftcardInventoryItem }) {
-  if (!item.imageUrl) return <Gift color="#ffffff" size={30} />;
-  if (/\.svg(?:\?|$)/i.test(item.imageUrl)) {
-    return <SvgUri height={46} uri={item.imageUrl} width={126} />;
-  }
   return (
-    <Image
-      accessibilityIgnoresInvertColors
-      resizeMode="contain"
-      source={{ uri: item.imageUrl }}
-      style={styles.logoImage}
+    <BrandImage
+      accessibilityLabel={`${item.brandName} logo`}
+      fallback={<Gift color="#ffffff" size={30} />}
+      height={46}
+      source={item.imageUrl}
+      width={126}
     />
   );
 }

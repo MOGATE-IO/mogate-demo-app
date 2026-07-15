@@ -1,4 +1,4 @@
-import type { MainTab } from '@/components/BottomTabBar';
+import type { MainTab } from '@/navigation/tabs';
 import type { AppNetworkMode, RuntimeNetworkProfile } from '@/config/networkProfiles';
 import type { useBalance } from '@/@web3/hooks/useBalance';
 import type { useGiftcardCatalogue } from '@/features/catalogue/hooks/useGiftcardCatalogue';
@@ -50,6 +50,7 @@ export type AppScreenContext = {
   topUp: () => void | Promise<void>;
   goToTab: (tab: MainTab) => void;
   goToCheckout: (selection: CheckoutSelectionInput) => void;
+  prepareCheckout: (selection: CheckoutSelectionInput) => CheckoutSelection;
   updateCheckoutSelection: (selection: Partial<CheckoutSelection>) => void;
   goToProfileAbout: () => void;
   checkoutSelection: CheckoutSelection | null;

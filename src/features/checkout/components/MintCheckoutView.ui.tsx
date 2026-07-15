@@ -29,9 +29,9 @@ import {
 } from 'lucide-react-native';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import ArbitrumLogo from '../../../../assets/svg/arbitrum-arb-logo.svg';
-import EthereumLogo from '../../../../assets/svg/ethereum-eth-logo.svg';
-import FhenixLogo from '../../../../assets/svg/fhenix-full-logo-dark.svg';
+import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
+import ArbitrumLogo from '@assets/images/network/arbitrum-arb-logo.svg';
+import FhenixLogo from '@assets/external/fhenix-full-logo-dark.svg';
 import { PageHeader } from '@/components/PageHeader.ui';
 import { StatusPill } from '@/components/StatusPill';
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';

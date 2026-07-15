@@ -4,10 +4,10 @@ import { CircleHelp } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 
-import ArbitrumLogo from '../../../../assets/svg/arbitrum-arb-logo.svg';
-import EthereumLogo from '../../../../assets/svg/ethereum-eth-logo.svg';
-import UsdcLogo from '../../../../assets/svg/usdc.svg';
-import UsdtLogo from '../../../../assets/svg/usdt.svg';
+import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
+import ArbitrumLogo from '@assets/images/network/arbitrum-arb-logo.svg';
+import UsdcLogo from '@assets/images/token/usdc.svg';
+import UsdtLogo from '@assets/images/token/usdt.svg';
 import {
   formatTokenAmount,
   formatUsdAmount,

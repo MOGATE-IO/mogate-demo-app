@@ -39,3 +39,13 @@
 - Do not put mock catalogue rows in the mobile handler app. `/mogate/giftcard/brands` from `EXPO_API_BASE` must provide real merchants, including the Mogate Giftcard 0.1 USD smoke-test product when that product is needed.
 - Shared UI primitives belong in `src/components`, including Button, Card, PageHeader, BottomSheet, segmented controls, rows, and other reusable building blocks. Feature components may specialize or compose these primitives, but must not recreate a one-off modal/sheet/button/header when the primitive can serve multiple features.
 - HeroUI Native/examples remain the visual reference unless the actual package is installed. If HeroUI is added later, keep HeroUI imports inside `*.ui.tsx` files and preserve handler/hook boundaries.
+
+## 2026-07-15: Router and Asset Boundaries
+
+- Expo Router owns the route tree under `app/`; route modules must stay thin and may only select context, route params, frames, and screen composers.
+- Keep product state above the route stack in `MobileAppProvider` and `useMobileAppController`. Do not move wallet, catalogue, balance, inventory, checkout, or top-up handlers into route files.
+- The five-tab route group is Home, Search, Request, Inventory, and Profile. Mint checkout and profile detail are stack routes and must not render the tab bar.
+- Bottom navigation and route frames are replaceable `*.ui.tsx` components. Route names and path mappings belong in `src/navigation`, not inside the tab bar visual.
+- Preserve frontend-relative shared asset paths under mobile `assets/+logos`, `assets/external`, and `assets/images`. Keep source formats instead of converting SVG logos to PNG.
+- API image paths are data. Resolve them through the shared brand-asset registry and `BrandImage.ui.tsx`; feature hooks and services must not import rendering components.
+- Keep the custom entrypoint so crypto shims initialize before `expo-router/entry` in native development builds.

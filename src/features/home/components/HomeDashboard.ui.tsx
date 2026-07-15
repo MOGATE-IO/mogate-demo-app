@@ -18,14 +18,15 @@ import {
   WalletCards,
   type LucideIcon
 } from 'lucide-react-native';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 
-import ArbitrumLogo from '../../../../assets/svg/arbitrum-arb-logo.svg';
-import EthereumLogo from '../../../../assets/svg/ethereum-eth-logo.svg';
-import MogateLogo from '../../../../assets/svg/mogate-text-white.svg';
-import UsdcLogo from '../../../../assets/svg/usdc.svg';
-import UsdtLogo from '../../../../assets/svg/usdt.svg';
+import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
+import ArbitrumLogo from '@assets/images/network/arbitrum-arb-logo.svg';
+import MogateLogo from '@assets/mogate-text-white.svg';
+import UsdcLogo from '@assets/images/token/usdc.svg';
+import UsdtLogo from '@assets/images/token/usdt.svg';
+import { BrandImage } from '@/components/BrandImage.ui';
 import type { GiftcardMerchant } from '@/features/catalogue/services/catalogue';
 import { getAccountAvatarLabel } from '@/features/profile/utils/accountDisplay';
 
@@ -354,18 +355,17 @@ function MerchantRow({ merchant, onPress }: { merchant: GiftcardMerchant; onPres
       onPress={onPress}
       variant="ghost"
     >
-      {merchant.imageUrl ? (
-        <Image
-          accessibilityIgnoresInvertColors
-          resizeMode="contain"
-          source={{ uri: merchant.imageUrl }}
-          style={styles.merchantLogo}
-        />
-      ) : (
-        <View style={styles.merchantFallback}>
-          <Typography weight="bold">{merchant.name.slice(0, 1).toUpperCase()}</Typography>
-        </View>
-      )}
+      <BrandImage
+        accessibilityLabel={`${merchant.name} logo`}
+        fallback={(
+          <View style={styles.merchantFallback}>
+            <Typography weight="bold">{merchant.name.slice(0, 1).toUpperCase()}</Typography>
+          </View>
+        )}
+        height={40}
+        source={merchant.imageUrl}
+        width={40}
+      />
       <View style={styles.merchantCopy}>
         <Typography numberOfLines={1} weight="semibold">
           {merchant.name}

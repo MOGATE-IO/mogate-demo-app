@@ -1,7 +1,8 @@
 import { Card, Chip, Typography } from 'heroui-native';
 import { Gift } from 'lucide-react-native';
-import { Image, StyleSheet, View } from 'react-native';
-import { SvgUri } from 'react-native-svg';
+import { StyleSheet, View } from 'react-native';
+
+import { BrandImage } from '@/components/BrandImage.ui';
 
 export type GiftcardComponentProps = {
   brandName?: string | null;
@@ -16,26 +17,19 @@ export function GiftcardComponent({
   currency,
   imageUrl
 }: GiftcardComponentProps) {
-  const remoteImage = typeof imageUrl === 'string' && /^https?:\/\//.test(imageUrl) ? imageUrl : null;
-  const isSvg = Boolean(remoteImage && /\.svg(?:\?|#|$)/i.test(remoteImage));
   const useBrandBackground = /mogate/i.test(brandName ?? '');
 
   return (
     <Card className="rounded-lg border border-border bg-surface p-3 shadow-none">
       <View style={styles.row}>
         <View style={[styles.logoFrame, useBrandBackground && styles.logoFrameBrand]}>
-          {remoteImage && isSvg ? (
-            <SvgUri height={38} uri={remoteImage} width={38} />
-          ) : remoteImage ? (
-            <Image
-              accessibilityIgnoresInvertColors
-              resizeMode="contain"
-              source={{ uri: remoteImage }}
-              style={styles.logo}
-            />
-          ) : (
-            <Gift color="#e9680c" size={22} />
-          )}
+          <BrandImage
+            accessibilityLabel={brandName ? `${brandName} logo` : 'Giftcard logo'}
+            fallback={<Gift color="#e9680c" size={22} />}
+            height={38}
+            source={imageUrl}
+            width={38}
+          />
         </View>
         <View style={styles.copy}>
           <Typography color="muted" type="body-xs">Giftcard</Typography>

@@ -7,8 +7,17 @@
     "baseUrl": ".",
     "moduleSuffixes": [".ui", ""],
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@assets/*": ["assets/*"]
     }
   },
-  "include": ["entrypoint.js", "src", "app.config.ts", "metro.config.js"]
+  "include": [
+    "entrypoint.js",
+    "app",
+    "src",
+    "app.config.ts",
+    "metro.config.js",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }
