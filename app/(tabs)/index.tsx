@@ -1,12 +1,12 @@
 import { AppRouteFrame } from '@/components/AppRouteFrame.ui';
 import { useMobileApp } from '@/providers/MobileAppProvider';
-import { HomeScreen } from '@/screens/HomeScreen';
+import { CatalogueScreen } from '@/screens/CatalogueScreen';
 
-export default function HomeRoute() {
+export default function CatalogueRoute() {
   const context = useMobileApp();
   return (
-    <AppRouteFrame tabbed>
-      <HomeScreen context={context} />
+    <AppRouteFrame scroll={false} tabbed>
+      <CatalogueScreen context={context} />
     </AppRouteFrame>
   );
 }

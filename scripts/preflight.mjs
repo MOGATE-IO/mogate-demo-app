@@ -21,9 +21,9 @@ const ACTIVE_PROFILE = {
     appId: ''
   },
   gateway: {
-    version: 'v2',
-    v2Address: '',
-    fundedCollection: ''
+    version: 'signed-v2',
+    signedAddress: '0x5915cBB93c96C5d3D0eCBa39dD396ef959D8Af13',
+    fundedCollection: '0x557ceE3F7B829169251d6eAA9FCC3211C1008E0D'
   }
 };
 const PRODUCT_SIGNERS = new Set(['privy']);
@@ -166,10 +166,11 @@ function buildChecks(env) {
       : `${stack} is gated by the signer check before provider project config matters.`;
 
   const chainReady = PUBLIC_PARTICLE_UA_CHAIN_IDS.has(targetChainId);
-  const v2Ready =
-    gatewayVersion !== 'v2' ||
-    (isAddress(ACTIVE_PROFILE.gateway.v2Address) &&
-      isAddress(ACTIVE_PROFILE.gateway.fundedCollection));
+  const signedAddress =
+    env.EXPO_PUBLIC_FUNDED_GATEWAY_ADDRESS || ACTIVE_PROFILE.gateway.signedAddress;
+  const fundedCollection =
+    env.EXPO_PUBLIC_FUNDED_GIFTCARD_COLLECTION || ACTIVE_PROFILE.gateway.fundedCollection;
+  const fundedGatewayReady = isAddress(signedAddress) && isAddress(fundedCollection);
 
   return [
     check(
@@ -193,11 +194,11 @@ function buildChecks(env) {
     checkPrimaryAsset(ACTIVE_PROFILE.expectedPrimaryAsset, targetChainId, allowUnlistedTestnet),
     check(
       'gateway',
-      `${gatewayVersion} gateway`,
-      v2Ready,
-      v2Ready
-        ? `Gateway mode ${gatewayVersion} has required config.`
-        : 'V2 gateway and funded collection are not configured in apps/mobile/src/config/networkProfiles.ts.'
+      'Direct funded gateway',
+      fundedGatewayReady,
+      fundedGatewayReady
+        ? `Gateway mode ${gatewayVersion} has a configured proxy and collection.`
+        : 'The signed funded gateway proxy and collection are not configured.'
     ),
     check(
       'checkout',

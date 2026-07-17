@@ -1,23 +1,21 @@
 import {
   Button,
   Card,
-  SearchField,
-  Select,
-  Separator,
   Skeleton,
   Surface,
-  Tabs,
   Typography
 } from 'heroui-native';
-import { ChevronRight, CircleAlert, RotateCw } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CircleAlert, RotateCw } from 'lucide-react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { BrandImage } from '@/components/BrandImage.ui';
-import { HeroBottomSheet } from '@/components/HeroBottomSheet.ui';
+import { CatalogueFilters } from '@/features/catalogue/components/CatalogueFilters.ui';
+import { CatalogueHeader } from '@/features/catalogue/components/CatalogueHeader.ui';
+import { CatalogueItem } from '@/features/catalogue/components/CatalogueItem.ui';
 import type { GiftcardMerchant } from '@/features/catalogue/services/catalogue';
-import { formatRegionLabel } from '@/utils/regions';
 
 export type CatalogueBrowserProps = {
+  accountName: string;
+  avatarLabel: string;
   query: string;
   country: string;
   loading: boolean;
@@ -25,50 +23,30 @@ export type CatalogueBrowserProps = {
   merchants: GiftcardMerchant[];
   totalCount: number;
   canLoadMore: boolean;
-  selected: GiftcardMerchant | null;
-  selectedAmount: number | null;
-  selectedRegion: string | null;
-  receiverAddress?: string | null;
+  onOpenAccount: () => void;
   onQueryChange: (query: string) => void;
   onCountryChange: (country: string) => void;
   onSelectMerchant: (merchant: GiftcardMerchant) => void;
-  onBack: () => void;
   onLoadMore: () => void;
   onRetry: () => void;
-  onSelectAmount: (amount: number) => void;
-  onSelectRegion: (region: string) => void;
-  onCheckout: (merchant: GiftcardMerchant, amount: number, region: string) => void;
 };
 
-const COUNTRY_OPTIONS = [
-  { code: 'GLOBAL', label: 'Global' },
-  { code: 'US', label: 'US' },
-  { code: 'ID', label: 'ID' },
-  { code: 'SG', label: 'SG' },
-  { code: 'GB', label: 'GB' }
-] as const;
-
 export function CatalogueBrowser({
+  accountName,
+  avatarLabel,
   country,
   lastError,
   loading,
   merchants,
   totalCount,
   canLoadMore,
-  onBack,
-  onCheckout,
   onCountryChange,
   onLoadMore,
+  onOpenAccount,
   onQueryChange,
-  onSelectAmount,
   onSelectMerchant,
-  onSelectRegion,
   onRetry,
-  query,
-  receiverAddress,
-  selected,
-  selectedAmount,
-  selectedRegion
+  query
 }: CatalogueBrowserProps) {
   // Temporarily bypassed: catalogue selection now opens the stack checkout directly.
   /*
@@ -146,6 +124,41 @@ export function CatalogueBrowser({
 
   return (
     <View style={styles.screen}>
+      <View style={styles.fixedHeader}>
+        <CatalogueHeader
+          accountName={accountName}
+          avatarLabel={avatarLabel}
+          onOpenAccount={onOpenAccount}
+        />
+        <CatalogueFilters
+          country={country}
+          onCountryChange={onCountryChange}
+          onQueryChange={onQueryChange}
+          query={query}
+        />
+
+        {lastError ? (
+          <Surface className="rounded-lg bg-danger-soft p-3 shadow-none" variant="transparent">
+            <View style={styles.errorContent}>
+              <CircleAlert color="#c43d45" size={18} />
+              <View style={styles.errorCopy}>
+                <Typography weight="semibold">Catalogue unavailable</Typography>
+                <Typography color="muted" type="body-xs">
+                  {lastError}
+                </Typography>
+              </View>
+              <Button accessibilityLabel="Retry catalogue" onPress={onRetry} size="sm" variant="ghost">
+                <RotateCw color="#c43d45" size={16} />
+              </Button>
+            </View>
+          </Surface>
+        ) : null}
+
+        <Typography color="muted" type="body-xs">
+          {loading ? 'Loading catalogue' : `${merchants.length} of ${totalCount} merchants`}
+        </Typography>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -159,64 +172,7 @@ export function CatalogueBrowser({
             nativeEvent.layoutMeasurement.height + nativeEvent.contentOffset.y >= nativeEvent.contentSize.height - 96;
           if (nearBottom && canLoadMore) onLoadMore();
         }}
-        stickyHeaderIndices={[0]}
       >
-        <View style={styles.stickyHeader}>
-          <View style={styles.screenHeader}>
-            <Typography.Heading type="h3">Giftcards</Typography.Heading>
-            <Typography color="muted" type="body-sm">
-              Choose a merchant, value, and delivery region.
-            </Typography>
-          </View>
-
-          <SearchField onChange={onQueryChange} value={query}>
-            <SearchField.Group className="rounded-lg">
-              <SearchField.SearchIcon />
-              <SearchField.Input
-                autoCapitalize="none"
-                autoCorrect={false}
-                className="rounded-lg"
-                placeholder="Search merchants or categories"
-              />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
-
-          <Tabs onValueChange={onCountryChange} value={country} variant="primary">
-            <Tabs.List className="rounded-lg">
-              <Tabs.ScrollView showsHorizontalScrollIndicator={false}>
-                <Tabs.Indicator />
-                {COUNTRY_OPTIONS.map((option) => (
-                  <Tabs.Trigger key={option.code} value={option.code}>
-                    <Tabs.Label>{option.label}</Tabs.Label>
-                  </Tabs.Trigger>
-                ))}
-              </Tabs.ScrollView>
-            </Tabs.List>
-          </Tabs>
-
-          {lastError ? (
-            <Surface className="rounded-lg bg-danger-soft p-3 shadow-none" variant="transparent">
-              <View style={styles.errorContent}>
-                <CircleAlert color="#c43d45" size={18} />
-                <View style={styles.errorCopy}>
-                  <Typography weight="semibold">Catalogue unavailable</Typography>
-                  <Typography color="muted" type="body-xs">
-                    {lastError}
-                  </Typography>
-                </View>
-                <Button accessibilityLabel="Retry catalogue" onPress={onRetry} size="sm" variant="ghost">
-                  <RotateCw color="#c43d45" size={16} />
-                </Button>
-              </View>
-            </Surface>
-          ) : null}
-
-          <Typography color="muted" type="body-xs">
-            {loading ? 'Loading catalogue' : `${merchants.length} of ${totalCount} merchants`}
-          </Typography>
-        </View>
-
         {loading && merchants.length === 0 ? (
           <Surface className="gap-2 rounded-lg border border-border bg-surface p-3 shadow-none">
             <Skeleton className="h-[68px] w-full rounded-md" />
@@ -224,14 +180,15 @@ export function CatalogueBrowser({
             <Skeleton className="h-[68px] w-full rounded-md" />
           </Surface>
         ) : merchants.length > 0 ? (
-          <Surface className="rounded-lg border border-border bg-surface shadow-none">
-            {merchants.map((merchant, index) => (
-              <View key={merchant.id}>
-                {index > 0 ? <Separator /> : null}
-                <MerchantRow merchant={merchant} onPress={() => onSelectMerchant(merchant)} />
-              </View>
+          <View style={styles.catalogueList}>
+            {merchants.map((merchant) => (
+              <CatalogueItem
+                key={merchant.id}
+                merchant={merchant}
+                onPress={() => onSelectMerchant(merchant)}
+              />
             ))}
-          </Surface>
+          </View>
         ) : (
           <Card className="rounded-lg border border-border bg-surface p-4 shadow-none">
             <Typography weight="semibold">No giftcards found</Typography>
@@ -247,242 +204,34 @@ export function CatalogueBrowser({
           </Button>
         ) : null}
       </ScrollView>
-
-      <MerchantSetupSheet
-        merchant={selected}
-        onBack={onBack}
-        onCheckout={onCheckout}
-        onSelectAmount={onSelectAmount}
-        onSelectRegion={onSelectRegion}
-        selectedAmount={selectedAmount}
-        selectedRegion={selectedRegion}
-      />
-    </View>
-  );
-}
-
-function MerchantRow({
-  merchant,
-  onPress
-}: {
-  merchant: GiftcardMerchant;
-  onPress: () => void;
-}) {
-  return (
-    <Button
-      accessibilityLabel={`Choose ${merchant.name}`}
-      className="h-auto min-h-[72px] w-full justify-start rounded-none px-3 py-2"
-      onPress={onPress}
-      variant="ghost"
-    >
-      <MerchantImage merchant={merchant} />
-      <View style={styles.rowText}>
-        <Typography numberOfLines={1} weight="semibold">
-          {merchant.name}
-        </Typography>
-        <Typography color="muted" numberOfLines={1} type="body-xs">
-          {merchant.category} / From ${merchant.availableAmounts[0]}
-        </Typography>
-      </View>
-      <ChevronRight color="#71717a" size={18} />
-    </Button>
-  );
-}
-
-function MerchantSetupSheet({
-  merchant,
-  onBack,
-  onCheckout,
-  onSelectAmount,
-  onSelectRegion,
-  selectedAmount,
-  selectedRegion
-}: {
-  merchant: GiftcardMerchant | null;
-  onBack: () => void;
-  onCheckout: (merchant: GiftcardMerchant, amount: number, region: string) => void;
-  onSelectAmount: (amount: number) => void;
-  onSelectRegion: (region: string) => void;
-  selectedAmount: number | null;
-  selectedRegion: string | null;
-}) {
-  const regionOptions = merchant
-    ? Array.from(new Set([merchant.country, ...merchant.regions].filter((region): region is string => Boolean(region))))
-    : [];
-  const region = selectedRegion ?? regionOptions[0] ?? 'GLOBAL';
-  const selectedRegionOption = { value: region, label: formatRegionLabel(region) };
-
-  return (
-    <HeroBottomSheet
-      description={merchant?.category}
-      headerLeading={merchant ? <MerchantImage large merchant={merchant} /> : null}
-      onClose={onBack}
-      size="compact"
-      title={merchant?.name ?? 'Giftcard setup'}
-      visible={Boolean(merchant)}
-    >
-      {merchant ? (
-        <View style={styles.sheetContent}>
-          <View style={styles.sheetField}>
-            <Typography color="muted" type="body-xs" weight="semibold">
-              Value
-            </Typography>
-            <CheckoutAmountSelector
-              amount={selectedAmount ?? merchant.availableAmounts[0]}
-              amounts={merchant.availableAmounts}
-              onSelectAmount={onSelectAmount}
-            />
-          </View>
-
-          <View style={styles.sheetField}>
-            <Typography color="muted" type="body-xs" weight="semibold">
-              Region
-            </Typography>
-            <Select
-              onValueChange={(option) => {
-                const next = Array.isArray(option) ? option[0] : option;
-                if (next) onSelectRegion(next.value);
-              }}
-              value={selectedRegionOption}
-            >
-              <Select.Trigger className="rounded-lg">
-                <Select.Value placeholder="Choose region" />
-                <Select.TriggerIndicator />
-              </Select.Trigger>
-              <Select.Portal>
-                <Select.Overlay />
-                <Select.Content presentation="popover" width="trigger">
-                  <Select.ListLabel>Available region</Select.ListLabel>
-                  {regionOptions.map((option) => (
-                    <Select.Item
-                      key={option}
-                      label={formatRegionLabel(option)}
-                      value={option}
-                    >
-                      <Select.ItemLabel />
-                      <Select.ItemIndicator />
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Portal>
-            </Select>
-          </View>
-
-          <View style={styles.sheetFooter}>
-            <Button
-              className="w-full rounded-lg"
-              isDisabled={!selectedAmount || !region}
-              onPress={() => {
-                if (!selectedAmount || !region) return;
-                onCheckout(merchant, selectedAmount, region);
-              }}
-              variant="primary"
-            >
-              <Button.Label>Continue</Button.Label>
-              <ChevronRight color="#ffffff" size={18} />
-            </Button>
-          </View>
-        </View>
-      ) : null}
-    </HeroBottomSheet>
-  );
-}
-
-function CheckoutAmountSelector({
-  amount,
-  amounts,
-  onSelectAmount
-}: {
-  amount: number;
-  amounts: number[];
-  onSelectAmount: (amount: number) => void;
-}) {
-  return (
-    <View style={styles.amountGrid}>
-      {amounts.map((nextAmount) => {
-        const active = amount === nextAmount;
-        return (
-          <Button
-            accessibilityLabel={`Choose $${nextAmount}`}
-            className={active
-              ? 'min-w-[72px] rounded-lg border border-accent bg-accent-soft'
-              : 'min-w-[72px] rounded-lg border border-border bg-surface'}
-            key={nextAmount}
-            onPress={() => onSelectAmount(nextAmount)}
-            size="sm"
-            variant="ghost"
-          >
-            <Button.Label className={active ? 'font-semibold text-accent' : 'font-semibold text-foreground'}>
-              ${nextAmount}
-            </Button.Label>
-          </Button>
-        );
-      })}
-    </View>
-  );
-}
-
-function SummaryRow({
-  label,
-  value
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={styles.summaryValue}>{value}</Text>
-    </View>
-  );
-}
-
-function MerchantImage({
-  large,
-  merchant
-}: {
-  large?: boolean;
-  merchant: GiftcardMerchant;
-}) {
-  const useBrandBackground = /mogate/i.test(merchant.name);
-
-  return (
-    <View
-      style={[
-        styles.logoFrame,
-        merchant.imageUrl && styles.logoFrameRemote,
-        useBrandBackground && styles.logoFrameBrand,
-        large && styles.logoFrameLarge
-      ]}
-    >
-      <BrandImage
-        accessibilityLabel={`${merchant.name} logo`}
-        fallback={(
-          <Text style={[styles.logoFallback, large && styles.logoFallbackLarge]}>
-            {merchant.name.slice(0, 2).toUpperCase()}
-          </Text>
-        )}
-        height={large ? 44 : 36}
-        source={merchant.imageUrl}
-        width={large ? 44 : 36}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1
+    alignSelf: 'stretch',
+    flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
+    width: '100%'
   },
   scrollContent: {
     gap: 12,
     paddingBottom: 96
   },
-  stickyHeader: {
+  catalogueList: {
+    alignSelf: 'stretch',
+    gap: 12,
+    width: '100%'
+  },
+  fixedHeader: {
+    alignSelf: 'stretch',
     backgroundColor: '#f5f5f5',
     gap: 10,
     paddingBottom: 12,
     paddingTop: 4,
+    width: '100%',
     zIndex: 5
   },
   screenHeader: {

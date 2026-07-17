@@ -3,7 +3,7 @@ import type {
   UnifiedBalance,
   UnifiedChainAssetBreakdown
 } from '@/@web3/types/wallet';
-import type { StablecoinRoute } from '@/config/networkProfiles';
+import type { SolanaBalanceRoute, StablecoinRoute } from '@/config/networkProfiles';
 
 export type StablecoinSymbol = 'USDC' | 'USDT';
 
@@ -26,7 +26,7 @@ export type StablecoinPortfolio = {
 export type NativeBalanceRow = {
   chainId: number;
   chainLabel: string;
-  symbol: 'ETH';
+  symbol: 'ETH' | 'SOL';
   amount: number;
 };
 
@@ -41,6 +41,8 @@ const CHAIN_LABELS: Record<number, string> = {
   137: 'Polygon',
   8453: 'Base',
   42161: 'Arbitrum',
+  101: 'Solana',
+  103: 'Solana Devnet',
   11155111: 'Ethereum Sepolia',
   421614: 'Arbitrum Sepolia'
 };
@@ -81,6 +83,24 @@ async function rpcCall(rpcUrl: string, method: string, params: unknown[]) {
   };
   if (body.error) throw new Error(body.error.message || 'RPC returned an error.');
   return BigInt(body.result || '0x0');
+}
+
+async function solanaRpcCall<T>(rpcUrl: string, method: string, params: unknown[]): Promise<T> {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: `${method}-${Date.now()}-${Math.random()}`,
+      method,
+      params
+    })
+  });
+  if (!response.ok) throw new Error(`Solana RPC request failed ${response.status}.`);
+  const body = await response.json() as { error?: { message?: string }; result?: T };
+  if (body.error) throw new Error(body.error.message || 'Solana RPC returned an error.');
+  if (body.result == null) throw new Error('Solana RPC returned no result.');
+  return body.result;
 }
 
 async function loadStablecoinRoute(route: StablecoinRoute, ownerAddress: string) {
@@ -140,8 +160,75 @@ export async function loadStablecoinRouteBalances(
     rows: results.flatMap((result) => result.rows),
     nativeRows: results
       .map((result) => result.native)
-      .filter((row): row is NativeBalanceRow => Boolean(row)),
+      .filter((row): row is NonNullable<typeof row> => row != null),
     errors: results.flatMap((result) => result.errors)
+  };
+}
+
+/** Loads canonical SOL, USDC, and USDT balances for the linked Solana wallet. */
+export async function loadSolanaBalanceRoute(
+  route: SolanaBalanceRoute,
+  ownerAddress: string
+): Promise<StablecoinRouteBalances> {
+  const nativePromise = solanaRpcCall<{ value: number }>(
+    route.rpcUrl,
+    'getBalance',
+    [ownerAddress, { commitment: 'confirmed' }]
+  );
+  const tokenPromises = route.tokens.map(async (token) => {
+    const result = await solanaRpcCall<{
+      value: Array<{
+        account?: {
+          data?: {
+            parsed?: {
+              info?: {
+                tokenAmount?: { uiAmountString?: string | null };
+              };
+            };
+          };
+        };
+      }>;
+    }>(route.rpcUrl, 'getTokenAccountsByOwner', [
+      ownerAddress,
+      { mint: token.mint },
+      { encoding: 'jsonParsed', commitment: 'confirmed' }
+    ]);
+    const amount = result.value.reduce((total, account) => {
+      const value = Number(account.account?.data?.parsed?.info?.tokenAmount?.uiAmountString ?? 0);
+      return total + (Number.isFinite(value) ? value : 0);
+    }, 0);
+    return {
+      id: `${token.symbol}-${route.chainId}-${token.mint}`,
+      symbol: token.symbol,
+      chainId: route.chainId,
+      chainLabel: route.chainLabel,
+      tokenAddress: token.mint,
+      amount,
+      amountInUsd: amount
+    } satisfies StablecoinBalanceRow;
+  });
+  const [nativeResult, ...tokenResults] = await Promise.allSettled([
+    nativePromise,
+    ...tokenPromises
+  ]);
+  const errors = tokenResults
+    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    .map((result) => `${route.chainLabel}: ${String(result.reason)}`);
+  if (nativeResult.status === 'rejected') {
+    errors.push(`${route.chainLabel} gas: ${String(nativeResult.reason)}`);
+  }
+
+  return {
+    rows: tokenResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []),
+    nativeRows: nativeResult.status === 'fulfilled'
+      ? [{
+          chainId: route.chainId,
+          chainLabel: route.chainLabel,
+          symbol: route.nativeSymbol,
+          amount: nativeResult.value.value / 1_000_000_000
+        }]
+      : [],
+    errors
   };
 }
 

@@ -27,6 +27,21 @@ export type StablecoinRoute = {
   tokens: StablecoinRouteToken[];
 };
 
+export const SOLANA_MAINNET_CHAIN_ID = 101;
+export const SOLANA_DEVNET_CHAIN_ID = 103;
+
+export type SolanaBalanceRoute = {
+  chainId: typeof SOLANA_MAINNET_CHAIN_ID | typeof SOLANA_DEVNET_CHAIN_ID;
+  chainLabel: 'Solana' | 'Solana Devnet';
+  rpcUrl: string;
+  nativeSymbol: 'SOL';
+  tokens: Array<{
+    symbol: 'USDC' | 'USDT';
+    mint: string;
+    decimals: number;
+  }>;
+};
+
 export type RuntimeNetworkProfile = {
   mode: AppNetworkMode;
   label: string;
@@ -50,6 +65,7 @@ export type RuntimeNetworkProfile = {
   };
   particle: ParticleProjectConfig;
   stablecoinRoutes: StablecoinRoute[];
+  solanaBalanceRoute: SolanaBalanceRoute;
   ua: {
     targetChainId: number;
     chainLabel: string;
@@ -65,7 +81,7 @@ export type RuntimeNetworkProfile = {
     version: GatewayVersion;
     legacyAddress: HexString | '';
     legacyCollection: HexString | '';
-    v2Address: HexString | '';
+    signedAddress: HexString | '';
     fundedCollection: HexString | '';
   };
   onramp: {
@@ -159,31 +175,66 @@ const MAINNET_STABLECOIN_ROUTES: StablecoinRoute[] = [
   }
 ];
 
+const TESTNET_SOLANA_BALANCE_ROUTE: SolanaBalanceRoute = {
+  chainId: SOLANA_DEVNET_CHAIN_ID,
+  chainLabel: 'Solana Devnet',
+  rpcUrl: 'https://api.devnet.solana.com',
+  nativeSymbol: 'SOL',
+  tokens: [
+    {
+      symbol: 'USDC',
+      mint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+      decimals: 6
+    }
+  ]
+};
+
+const MAINNET_SOLANA_BALANCE_ROUTE: SolanaBalanceRoute = {
+  chainId: SOLANA_MAINNET_CHAIN_ID,
+  chainLabel: 'Solana',
+  rpcUrl: 'https://api.mainnet-beta.solana.com',
+  nativeSymbol: 'SOL',
+  tokens: [
+    {
+      symbol: 'USDC',
+      mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      decimals: 6
+    },
+    {
+      symbol: 'USDT',
+      mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+      decimals: 6
+    }
+  ]
+};
+
 function apiUrl(path: string) {
   return `${MOBILE_ENV.apiBase.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 }
 
 const TESTNET_GATEWAY = {
-  version: 'v2',
-  legacyAddress: '0xA91D70aE85af28Efc23D5d90348a72A08C56056A' as HexString,
+  version: MOBILE_ENV.gateway.version,
+  legacyAddress: '0x98f7EBAedE6248a98a7B9107307EA2d56b143759' as HexString,
   legacyCollection: '0x4cf031C2ecf8ee6b08bF7ab16a49636A0FADBF9D' as HexString,
-  v2Address: '' as HexString | '',
-  fundedCollection: '' as HexString | ''
+  signedAddress: (MOBILE_ENV.gateway.signedAddress ||
+    '0x5915cBB93c96C5d3D0eCBa39dD396ef959D8Af13') as HexString,
+  fundedCollection: (MOBILE_ENV.gateway.fundedCollection ||
+    '0x557ceE3F7B829169251d6eAA9FCC3211C1008E0D') as HexString
 } as const;
 
 const MAINNET_GATEWAY = {
-  version: 'v2',
+  version: MOBILE_ENV.gateway.version,
   legacyAddress: '' as HexString | '',
   legacyCollection: '' as HexString | '',
-  v2Address: '' as HexString | '',
-  fundedCollection: '' as HexString | ''
+  signedAddress: MOBILE_ENV.gateway.signedAddress as HexString | '',
+  fundedCollection: MOBILE_ENV.gateway.fundedCollection as HexString | ''
 } as const;
 
 export const NETWORK_PROFILES: Record<AppNetworkMode, RuntimeNetworkProfile> = {
   testnet: {
     mode: 'testnet',
     label: 'Testnet',
-    description: 'Sandbox profile for Privy login, direct USDC payment, and Ethereum Sepolia voucher minting.',
+    description: 'Sandbox profile for Privy login, direct USDC payment, and Ethereum Sepolia funded minting.',
     apiBase: MOBILE_ENV.apiBase,
     paths: API_PATHS,
     checkoutInitEndpoint: apiUrl(API_PATHS.checkoutInit),
@@ -193,6 +244,7 @@ export const NETWORK_PROFILES: Record<AppNetworkMode, RuntimeNetworkProfile> = {
     privy: MOBILE_ENV.privy,
     particle: PARTICLE_UA_PROJECT,
     stablecoinRoutes: TESTNET_STABLECOIN_ROUTES,
+    solanaBalanceRoute: TESTNET_SOLANA_BALANCE_ROUTE,
     ua: {
       targetChainId: 11155111,
       chainLabel: 'Ethereum Sepolia',
@@ -225,6 +277,7 @@ export const NETWORK_PROFILES: Record<AppNetworkMode, RuntimeNetworkProfile> = {
     privy: MOBILE_ENV.privy,
     particle: PARTICLE_UA_PROJECT,
     stablecoinRoutes: MAINNET_STABLECOIN_ROUTES,
+    solanaBalanceRoute: MAINNET_SOLANA_BALANCE_ROUTE,
     ua: {
       targetChainId: 42161,
       chainLabel: 'Arbitrum One',

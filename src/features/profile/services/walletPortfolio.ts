@@ -70,7 +70,7 @@ const SOLANA_NETWORK = {
   rpcUrl: 'https://api.mainnet-beta.solana.com',
   tokens: [
     { symbol: 'USDC', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
-    { symbol: 'USDT', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkYDPwYbXxQ4nM1vK' }
+    { symbol: 'USDT', mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' }
   ] satisfies SolanaTokenConfig[]
 };
 

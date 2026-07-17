@@ -2,9 +2,9 @@ import { Button, Surface } from 'heroui-native';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import {
   HandCoins,
-  House,
-  Search,
-  UserRound,
+  Newspaper,
+  Store,
+  Trophy,
   WalletCards,
   type LucideIcon
 } from 'lucide-react-native';
@@ -18,11 +18,11 @@ import {
 } from '@/navigation/tabs';
 
 const TABS: Record<MainTab, { label: string; Icon: LucideIcon }> = {
-  home: { label: 'Home', Icon: House },
-  search: { label: 'Search', Icon: Search },
+  catalogue: { label: 'Catalogue', Icon: Store },
+  updates: { label: 'Updates', Icon: Newspaper },
   request: { label: 'Request', Icon: HandCoins },
-  inventory: { label: 'Cards', Icon: WalletCards },
-  profile: { label: 'Profile', Icon: UserRound }
+  leaderboard: { label: 'Leaders', Icon: Trophy },
+  inventory: { label: 'Cards', Icon: WalletCards }
 };
 
 export function BottomTabBar({ descriptors, navigation, state }: BottomTabBarProps) {

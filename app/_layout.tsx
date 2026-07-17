@@ -44,9 +44,19 @@ export default function RootLayout() {
               />
               <Stack.Screen
                 name="mint/[merchantId]"
-                options={{ animation: 'slide_from_bottom', headerShown: false, presentation: 'fullScreenModal' }}
+                options={{ animation: 'slide_from_right', headerShown: false, presentation: 'card' }}
               />
+              <Stack.Screen name="profile/index" options={{ animation: 'slide_from_right', headerShown: false }} />
               <Stack.Screen name="profile/about" options={{ headerShown: false }} />
+              <Stack.Screen name="account/[section]" options={{ animation: 'slide_from_right', headerShown: false }} />
+              <Stack.Screen name="request/qr" options={{ animation: 'slide_from_right', headerShown: false }} />
+              <Stack.Screen name="request/scan" options={{ animation: 'slide_from_right', headerShown: false }} />
+              <Stack.Screen name="request/payment" options={{ animation: 'slide_from_right', headerShown: false }} />
+              <Stack.Screen name="giftcard/[tokenId]" options={{ animation: 'slide_from_right', headerShown: false }} />
+              <Stack.Screen
+                name="giftcard/[tokenId]/[action]"
+                options={{ animation: 'slide_from_right', headerShown: false, presentation: 'card' }}
+              />
             </Stack>
             <AppOverlays />
           </MobileAppProvider>

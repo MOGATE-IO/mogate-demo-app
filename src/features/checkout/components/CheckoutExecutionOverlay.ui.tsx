@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Chip, Surface, Typography } from 'heroui-native';
 import {
   Check,
@@ -32,6 +32,14 @@ export function CheckoutExecutionOverlay({
   const insets = useSafeAreaInsets();
   const completionScheduled = useRef(false);
   const visible = step !== 'idle';
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    setElapsedSeconds(0);
+    if (!visible || step === 'complete' || step === 'error') return undefined;
+    const timer = setInterval(() => setElapsedSeconds((value) => value + 1), 1000);
+    return () => clearInterval(timer);
+  }, [step, visible]);
 
   useEffect(() => {
     if (step !== 'complete') {
@@ -75,13 +83,13 @@ export function CheckoutExecutionOverlay({
 
         <View style={styles.center}>
           {step === 'preparing' ? (
-            <PreparationState />
+            <PreparationState elapsedSeconds={elapsedSeconds} />
           ) : step === 'error' ? (
             <ErrorState error={error} onRetry={onRetry} onReturn={onReturn} />
           ) : step === 'complete' ? (
             <CompleteState />
           ) : (
-            <PaymentProgress step={step} />
+            <PaymentProgress elapsedSeconds={elapsedSeconds} step={step} />
           )}
         </View>
 
@@ -95,7 +103,7 @@ export function CheckoutExecutionOverlay({
   );
 }
 
-function PreparationState() {
+function PreparationState({ elapsedSeconds }: { elapsedSeconds: number }) {
   return (
     <View style={styles.stateStack}>
       <View style={styles.loaderWell}>
@@ -106,12 +114,22 @@ function PreparationState() {
         <Typography color="muted" style={styles.centerText}>
           Requesting the payment quote and mint parameters.
         </Typography>
+        <Typography color="muted" style={styles.elapsed} type="body-xs">
+          {elapsedSeconds}s
+        </Typography>
       </View>
+      {elapsedSeconds >= 12 ? <WaitingNotice step="preparing" /> : null}
     </View>
   );
 }
 
-function PaymentProgress({ step }: { step: CheckoutExecutionStep }) {
+function PaymentProgress({
+  elapsedSeconds,
+  step
+}: {
+  elapsedSeconds: number;
+  step: CheckoutExecutionStep;
+}) {
   const activeIndex = step === 'confirming-payment' ? 0 : step === 'minting' ? 1 : 2;
   const steps = [
     { label: 'Confirm payment', detail: 'Approve the USDC transaction in your wallet.' },
@@ -153,7 +171,25 @@ function PaymentProgress({ step }: { step: CheckoutExecutionStep }) {
           );
         })}
       </Surface>
+      <Typography color="muted" style={styles.elapsed} type="body-xs">
+        Current stage: {elapsedSeconds}s
+      </Typography>
+      {elapsedSeconds >= 12 ? <WaitingNotice step={step} /> : null}
     </View>
+  );
+}
+
+function WaitingNotice({ step }: { step: CheckoutExecutionStep }) {
+  const message = step === 'preparing'
+    ? 'The checkout service is taking longer than expected. Mogate will show an error automatically if the request reaches its deadline.'
+    : step === 'reconciling'
+      ? 'The payment result is known, but Inventory is still syncing. Do not submit another payment.'
+      : 'Still waiting for the embedded wallet or network. Check for a wallet confirmation prompt and keep Mogate open.';
+
+  return (
+    <Surface className="rounded-lg bg-warning-soft p-3 shadow-none" variant="transparent">
+      <Typography style={styles.warningText} type="body-xs">{message}</Typography>
+    </Surface>
   );
 }
 
@@ -260,6 +296,9 @@ const styles = StyleSheet.create({
   centerText: {
     textAlign: 'center'
   },
+  elapsed: {
+    textAlign: 'center'
+  },
   progressWrap: {
     gap: 24
   },
@@ -307,6 +346,11 @@ const styles = StyleSheet.create({
     width: '100%'
   },
   lockedCopy: {
+    textAlign: 'center'
+  },
+  warningText: {
+    color: '#7b5812',
+    lineHeight: 18,
     textAlign: 'center'
   }
 });

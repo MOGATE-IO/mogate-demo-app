@@ -22,12 +22,13 @@ const merchant = {
 describe('mobile route architecture', () => {
   it('maps all five route files to stable product tabs', () => {
     expect(MAIN_TAB_ROUTES).toEqual({
-      index: 'home',
-      search: 'search',
+      index: 'catalogue',
+      updates: 'updates',
       request: 'request',
-      inventory: 'inventory',
-      profile: 'profile'
+      leaderboard: 'leaderboard',
+      inventory: 'inventory'
     });
+    expect(MAIN_TAB_PATHS.catalogue).toBe('/');
     expect(MAIN_TAB_PATHS.inventory).toBe('/inventory');
   });
 

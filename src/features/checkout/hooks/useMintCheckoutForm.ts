@@ -48,6 +48,7 @@ export function useMintCheckoutForm(input: {
     setCouponCode: (couponCode: string) => input.onChange({ couponCode }),
     setAutoMint: (autoMint: boolean) => input.onChange({ autoMint }),
     setAutoUnwrap: (autoUnwrap: boolean) => input.onChange({ autoUnwrap }),
+    setGiftcardMode: (giftcardMode: CheckoutSelection['giftcardMode']) => input.onChange({ giftcardMode }),
     setReserveGas: (reserveGas: boolean) => input.onChange({ reserveGas })
   };
 }

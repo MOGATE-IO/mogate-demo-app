@@ -4,7 +4,7 @@ import { getNetworkProfile } from '../src/config/networkProfiles';
 import type { PreparedUnsafeCheckout } from '../src/features/checkout/services/giftcardCheckout';
 
 const checkout = {
-  gatewayVersion: 'v2',
+  gatewayVersion: 'signed-v2',
   checkoutId: 'checkout-1',
   orderId: 'order-1',
   collection: '0x2222222222222222222222222222222222222222',
@@ -88,7 +88,7 @@ describe('checkout reconciliation service', () => {
     expect(body).toMatchObject({
       checkoutId: 'checkout-1',
       orderId: 'order-1',
-      gatewayVersion: 'v2',
+      gatewayVersion: 'signed-v2',
       ownerAddress: checkout.to,
       receiver: checkout.to,
       tokenId: '3',

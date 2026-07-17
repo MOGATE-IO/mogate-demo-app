@@ -35,7 +35,7 @@ export function HomeScreen({ context }: { context: AppScreenContext }) {
       environmentLabel={context.profile.mode === 'testnet' ? 'Testnet' : 'Mainnet'}
       loginMethod={wallet.snapshot.identity?.loginMethods?.[0]}
       networkLabel={context.profile.ua.chainLabel}
-      onBrowse={() => context.goToTab('search')}
+      onBrowse={() => context.goToTab('catalogue')}
       onCheckout={(merchant, amount) => context.goToCheckout({ merchant, amount })}
       onTopUp={topUp}
       ownerAddress={ownerAddress}

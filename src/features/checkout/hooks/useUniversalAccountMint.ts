@@ -4,6 +4,7 @@ import { isPublicParticleUaChain } from '@/config/contracts';
 import { getDefaultNetworkProfile, type RuntimeNetworkProfile } from '@/config/networkProfiles';
 import { getSignerProviderInfo, isProductEip7702Signer } from '@/@web3/config/signerProviders';
 import type { WalletAdapter, WalletSnapshot } from '@/@web3/types/wallet';
+import { withTimeout } from '@/utils/async';
 import { toErrorMessage } from '@/utils/errors';
 import { prettyJson } from '@/utils/format';
 
@@ -124,7 +125,11 @@ export function useUniversalAccountMint(input: {
     setExecutionStep('preparing');
     try {
       if (!receiver) throw new Error('Connect a wallet before preparing checkout.');
-      const checkout = await fetchPreparedCheckout(receiver, profile, input.intent);
+      const checkout = await withTimeout(
+        fetchPreparedCheckout(receiver, profile, input.intent),
+        45_000,
+        'Checkout preparation did not finish within 45 seconds. Check that the Mogate API is running, then try again.'
+      );
       setPreparedCheckout(checkout);
       setCheckoutJson(
         prettyJson({
@@ -196,15 +201,27 @@ export function useUniversalAccountMint(input: {
         profile,
         onProgress: setExecutionStep
       });
-      setExecutionStep('reconciling');
-      const reconciliationResult = await reconcileUaMint({
-        ownerAddress,
-        checkout,
-        mintResult: result,
-        profile
-      });
       setPreparedCheckout(checkout);
       setMintResult(result);
+      setExecutionStep('reconciling');
+      let reconciliationResult: CheckoutReconciliationStatus;
+      try {
+        reconciliationResult = await withTimeout(
+          reconcileUaMint({
+            ownerAddress,
+            checkout,
+            mintResult: result,
+            profile
+          }),
+          20_000,
+          'OTA reconciliation did not finish within 20 seconds.'
+        );
+      } catch (error) {
+        reconciliationResult = {
+          status: 'error',
+          detail: `The mint is confirmed and Inventory is refreshing, but OTA reconciliation is pending: ${toErrorMessage(error)}`
+        };
+      }
       setReconciliation(reconciliationResult);
       setStage('sent');
       setExecutionStep('complete');

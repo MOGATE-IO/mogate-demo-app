@@ -63,6 +63,7 @@
     "tailwind-merge": "^3.6.0",
     "tailwind-variants": "^3.2.2",
     "tailwindcss": "^4.3.2",
+    "tweetnacl": "^1.0.3",
     "uniwind": "^1.10.0",
     "viem": "2.52.0",
     "zustand": "^5.0.8"

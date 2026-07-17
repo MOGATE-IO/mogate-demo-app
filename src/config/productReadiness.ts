@@ -32,9 +32,10 @@ export function getProductReadinessChecks(
     asset: profile.ua.expectTokenType,
     allowUnlistedTestnet: profile.ua.allowUnlistedTestnet
   });
-  const v2GatewayReady =
-    profile.gateway.version !== 'v2' ||
-    (isAddress(profile.gateway.v2Address) && isAddress(profile.gateway.fundedCollection));
+  const fundedGatewayReady =
+    profile.gateway.version === 'signed-v1' || profile.gateway.version === 'signed-v2'
+        ? isAddress(profile.gateway.signedAddress) && isAddress(profile.gateway.fundedCollection)
+        : isAddress(profile.gateway.legacyAddress) && isAddress(profile.gateway.legacyCollection);
   const signerConfigReady = stack !== 'privy' || hasPrivyProfileConfig(profile);
 
   return [
@@ -82,10 +83,10 @@ export function getProductReadinessChecks(
     {
       id: 'gateway',
       label: `${profile.gateway.version} gateway`,
-      status: v2GatewayReady ? 'ready' : 'blocked',
-      detail: v2GatewayReady
+      status: fundedGatewayReady ? 'ready' : 'blocked',
+      detail: fundedGatewayReady
         ? `Gateway mode ${profile.gateway.version} has required network config.`
-        : `V2 gateway and funded collection are not configured for ${profile.label}.`
+        : `The selected gateway and collection are not configured for ${profile.label}.`
     },
     {
       id: 'checkout',

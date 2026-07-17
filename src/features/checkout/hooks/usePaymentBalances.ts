@@ -4,6 +4,7 @@ import type { UnifiedBalance } from '@/@web3/types/wallet';
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
 import {
   loadStablecoinRouteBalances,
+  loadSolanaBalanceRoute,
   mergeStablecoinPortfolio,
   type NativeBalanceRow,
   type StablecoinBalanceRow
@@ -14,6 +15,7 @@ type PaymentBalanceStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export function usePaymentBalances(input: {
   ownerAddress?: string | null;
+  solanaAddress?: string | null;
   particleBalance?: UnifiedBalance | null;
   profile: RuntimeNetworkProfile;
 }) {
@@ -24,7 +26,8 @@ export function usePaymentBalances(input: {
 
   const refresh = useCallback(async () => {
     const ownerAddress = input.ownerAddress?.trim();
-    if (!ownerAddress) {
+    const solanaAddress = input.solanaAddress?.trim();
+    if (!ownerAddress && !solanaAddress) {
       setStatus('idle');
       setExactRows([]);
       setNativeRows([]);
@@ -35,19 +38,24 @@ export function usePaymentBalances(input: {
     setStatus('loading');
     setErrors([]);
     try {
-      const result = await loadStablecoinRouteBalances(
-        input.profile.stablecoinRoutes,
+      const [evmResult, solanaResult] = await Promise.all([
         ownerAddress
-      );
-      setExactRows(result.rows);
-      setNativeRows(result.nativeRows);
-      setErrors(result.errors);
-      setStatus(result.rows.length > 0 ? 'ready' : 'error');
+          ? loadStablecoinRouteBalances(input.profile.stablecoinRoutes, ownerAddress)
+          : Promise.resolve({ rows: [], nativeRows: [], errors: [] }),
+        solanaAddress
+          ? loadSolanaBalanceRoute(input.profile.solanaBalanceRoute, solanaAddress)
+          : Promise.resolve({ rows: [], nativeRows: [], errors: [] })
+      ]);
+      const rows = [...evmResult.rows, ...solanaResult.rows];
+      setExactRows(rows);
+      setNativeRows([...evmResult.nativeRows, ...solanaResult.nativeRows]);
+      setErrors([...evmResult.errors, ...solanaResult.errors]);
+      setStatus(rows.length > 0 ? 'ready' : 'error');
     } catch (error) {
       setStatus('error');
       setErrors([toErrorMessage(error)]);
     }
-  }, [input.ownerAddress, input.profile]);
+  }, [input.ownerAddress, input.profile, input.solanaAddress]);
 
   useEffect(() => {
     void refresh();

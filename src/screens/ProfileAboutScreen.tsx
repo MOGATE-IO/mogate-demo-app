@@ -44,7 +44,7 @@ export function ProfileAboutScreen({ context }: { context: AppScreenContext }) {
 
   return (
     <View style={styles.stack}>
-      <Button onPress={() => context.goToTab('profile')} variant="quiet">
+      <Button onPress={context.goToProfile} variant="quiet">
         Back to wallet
       </Button>
 

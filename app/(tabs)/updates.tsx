@@ -1,12 +1,12 @@
 import { AppRouteFrame } from '@/components/AppRouteFrame.ui';
 import { useMobileApp } from '@/providers/MobileAppProvider';
-import { SearchScreen } from '@/screens/SearchScreen';
+import { UpdatesScreen } from '@/screens/UpdatesScreen';
 
-export default function SearchRoute() {
+export default function UpdatesRoute() {
   const context = useMobileApp();
   return (
     <AppRouteFrame scroll={false} tabbed>
-      <SearchScreen context={context} />
+      <UpdatesScreen context={context} />
     </AppRouteFrame>
   );
 }

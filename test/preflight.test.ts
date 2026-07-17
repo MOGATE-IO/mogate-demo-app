@@ -38,7 +38,7 @@ describe('mobile preflight', () => {
     expect(result.stdout).toContain('[BLOCKED] Particle project');
     expect(result.stdout).toContain('[BLOCKED] Signer project');
     expect(result.stdout).toContain('[BLOCKED] Particle UA chain');
-    expect(result.stdout).toContain('networkProfiles.ts');
+    expect(result.stdout).toContain('[OK] Direct funded gateway');
     expect(result.stdout).toContain('[OK] API base');
     expect(result.stdout).toContain('Product UA sends must stay disabled');
   });
@@ -56,7 +56,7 @@ describe('mobile preflight', () => {
     expect(result.stdout).toContain('[OK] Signer project');
     expect(result.stdout).toContain('[OK] API base');
     expect(result.stdout).toContain('[BLOCKED] Particle UA chain');
-    expect(result.stdout).toContain('[BLOCKED] v2 gateway');
+    expect(result.stdout).toContain('[OK] Direct funded gateway');
   });
 
   it('ignores env attempts to switch the product signer stack', () => {

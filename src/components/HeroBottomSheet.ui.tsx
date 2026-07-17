@@ -1,12 +1,14 @@
-import type { ReactNode } from 'react';
-import { Button, Surface, Typography } from 'heroui-native';
-import { X } from 'lucide-react-native';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { BottomSheetFooter, type BottomSheetFooterProps } from '@gorhom/bottom-sheet';
+import { BottomSheet, Button } from 'heroui-native';
+import { Maximize2, Minimize2 } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function HeroBottomSheet({
   children,
   description,
+  footer,
   headerLeading,
   onClose,
   size = 'large',
@@ -15,6 +17,7 @@ export function HeroBottomSheet({
 }: {
   children: ReactNode;
   description?: string;
+  footer?: ReactNode;
   headerLeading?: ReactNode;
   onClose: () => void;
   size?: 'compact' | 'large';
@@ -22,87 +25,102 @@ export function HeroBottomSheet({
   visible: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const snapPoints = useMemo(
+    () => size === 'compact' ? ['54%', '88%'] : ['76%', '96%'],
+    [size]
+  );
+  const sheetRef = useRef<ComponentRef<typeof BottomSheet.Content>>(null);
+  const [snapIndex, setSnapIndex] = useState(0);
+
+  useEffect(() => {
+    if (visible) setSnapIndex(0);
+  }, [visible]);
+
+  const toggleExpanded = useCallback(() => {
+    const nextIndex = snapIndex === snapPoints.length - 1 ? 0 : snapPoints.length - 1;
+    sheetRef.current?.snapToIndex(nextIndex);
+    setSnapIndex(nextIndex);
+  }, [snapIndex, snapPoints.length]);
+
+  const renderFooter = useCallback((props: BottomSheetFooterProps) => {
+    if (!footer) return null;
+
+    return (
+      <BottomSheetFooter {...props} bottomInset={0}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {footer}
+        </View>
+      </BottomSheetFooter>
+    );
+  }, [footer, insets.bottom]);
 
   return (
-    <Modal
-      animationType="slide"
-      onRequestClose={onClose}
-      presentationStyle="overFullScreen"
-      transparent
-      visible={visible}
+    <BottomSheet
+      isOpen={visible}
+      onOpenChange={(open) => {
+        if (!open && visible) onClose();
+      }}
     >
-      <View style={styles.backdrop}>
-        <Pressable
-          accessibilityLabel="Close sheet"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={styles.dismissArea}
-        />
-        <Surface
-          className="rounded-t-lg border border-border bg-background shadow-lg"
-          style={[
-            styles.sheet,
-            size === 'compact' ? styles.compactSheet : styles.largeSheet,
-            { paddingBottom: Math.max(insets.bottom, 12) }
-          ]}
+      <BottomSheet.Portal>
+        <BottomSheet.Overlay />
+        <BottomSheet.Content
+          accessible={false}
+          backgroundClassName="rounded-t-lg bg-background"
+          contentContainerClassName="h-full p-0 pb-safe-offset-3"
+          enableContentPanningGesture
+          enableDynamicSizing={false}
+          enableHandlePanningGesture
+          enableOverDrag={false}
+          enablePanDownToClose
+          footerComponent={footer ? renderFooter : undefined}
+          handleIndicatorClassName="bg-border"
+          index={visible ? snapIndex : -1}
+          keyboardBehavior="extend"
+          onChange={(index) => {
+            if (visible && index >= 0) setSnapIndex(index);
+          }}
+          ref={sheetRef}
+          snapPoints={snapPoints}
+          topInset={insets.top}
         >
-          <View style={styles.grabber} />
           <View style={styles.header}>
             {headerLeading}
             <View style={styles.headerCopy}>
-              <Typography.Heading type="h4">{title}</Typography.Heading>
-              {description ? <Typography color="muted" type="body-sm">{description}</Typography> : null}
+              <BottomSheet.Title>{title}</BottomSheet.Title>
+              {description ? (
+                <BottomSheet.Description numberOfLines={2}>{description}</BottomSheet.Description>
+              ) : null}
             </View>
             <Button
-              accessibilityLabel="Close sheet"
+              accessibilityLabel={snapIndex === snapPoints.length - 1 ? 'Collapse sheet' : 'Expand sheet'}
               className="h-10 w-10 rounded-lg"
               isIconOnly
-              onPress={onClose}
+              onPress={toggleExpanded}
               variant="secondary"
             >
-              <X color="#18181b" size={19} />
+              {snapIndex === snapPoints.length - 1 ? (
+                <Minimize2 color="#3f3f46" size={18} />
+              ) : (
+                <Maximize2 color="#3f3f46" size={18} />
+              )}
             </Button>
+            <BottomSheet.Close accessibilityLabel="Close sheet" className="rounded-lg bg-default" />
           </View>
           <View style={styles.content}>{children}</View>
-        </Surface>
-      </View>
-    </Modal>
+        </BottomSheet.Content>
+      </BottomSheet.Portal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    backgroundColor: 'rgba(63,56,48,0.28)',
-    flex: 1,
-    justifyContent: 'flex-end'
-  },
-  dismissArea: {
-    flex: 1
-  },
-  sheet: {
-    paddingTop: 8
-  },
-  compactSheet: {
-    maxHeight: '72%',
-    minHeight: '55%'
-  },
-  largeSheet: {
-    maxHeight: '92%',
-    minHeight: '72%'
-  },
-  grabber: {
-    alignSelf: 'center',
-    backgroundColor: '#d4d4d8',
-    borderRadius: 3,
-    height: 5,
-    width: 44
-  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
+    paddingBottom: 14,
     paddingHorizontal: 18,
-    paddingVertical: 14
+    paddingTop: 10
   },
   headerCopy: {
     flex: 1,
@@ -111,5 +129,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1
+  },
+  footer: {
+    backgroundColor: '#fafafa'
   }
 });

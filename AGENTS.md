@@ -44,8 +44,17 @@
 
 - Expo Router owns the route tree under `app/`; route modules must stay thin and may only select context, route params, frames, and screen composers.
 - Keep product state above the route stack in `MobileAppProvider` and `useMobileAppController`. Do not move wallet, catalogue, balance, inventory, checkout, or top-up handlers into route files.
-- The five-tab route group is Home, Search, Request, Inventory, and Profile. Mint checkout and profile detail are stack routes and must not render the tab bar.
+- The five-tab route group is Catalogue, Updates, Request, Leaderboard, and Inventory. Profile, account settings, mint checkout, and giftcard detail are stack routes and must not render the tab bar.
 - Bottom navigation and route frames are replaceable `*.ui.tsx` components. Route names and path mappings belong in `src/navigation`, not inside the tab bar visual.
 - Preserve frontend-relative shared asset paths under mobile `assets/+logos`, `assets/external`, and `assets/images`. Keep source formats instead of converting SVG logos to PNG.
 - API image paths are data. Resolve them through the shared brand-asset registry and `BrandImage.ui.tsx`; feature hooks and services must not import rendering components.
 - Keep the custom entrypoint so crypto shims initialize before `expo-router/entry` in native development builds.
+
+## 2026-07-16: Signed Multi-Asset Inventory And Reconciliation
+
+- Mobile gateway mode `signed-v1` consumes OTA `prepared.permit.execution.evm.funded_checkout`; do not reconstruct or alter signed funding arrays client-side.
+- Build ERC20 payment approval to the signed gateway, one funded-asset approval to the collection for each ERC20, then the final `checkoutWithPermit` call. Native funding and reserved gas are summed into exact final-call value.
+- Inventory reads live `giftcardBalances(tokenId)` and `gasReserveOf(tokenId)`. Display each ERC20/native balance separately and never infer live value from metadata.
+- Funded unwrap calls `unwrap(tokenId)`, which makes the NFT soulbound only. The current owner must then call generic `withdraw(tokenId, balanceType, token, to, amount)` for each value asset and/or native gas reserve before an empty card can be burned.
+- Reconciliation posts the chain transaction hash to `/api/checkouts/reconcile`. UniversalX transaction ID alone is not proof of a target-chain mint.
+- The production OTA endpoint verifies receipt events before marking minted or sending email. The demo server endpoint remains an audit-only JSONL recorder.

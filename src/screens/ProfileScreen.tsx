@@ -18,15 +18,23 @@ export function ProfileScreen({ context }: { context: AppScreenContext }) {
   return (
     <WalletProfileView
       accountName={accountName}
+      balanceErrors={context.paymentBalances.errors}
+      balanceStatus={context.paymentBalances.status}
       environmentLabel={context.profile.label}
       giftcardCount={context.inventory.items.length}
       giftcardValue={formatUsdAmount(context.inventory.totalValue)}
       loginMethod={context.wallet.snapshot.identity?.loginMethods[0]}
       networkLabel={context.profile.ua.chainLabel}
+      onBack={() => context.goToTab('catalogue')}
       onLogout={context.wallet.disconnect}
-      onSettings={context.goToProfileAbout}
+      onRefreshBalances={context.paymentBalances.refresh}
+      onSettings={() => context.goToAccountSection('account-settings')}
+      onTopUp={context.topUp}
+      portfolio={context.paymentBalances.portfolio}
+      nativeRows={context.paymentBalances.nativeRows}
       profileState={profileState}
       stablecoinBalance={formatUsdAmount(context.paymentBalances.portfolio.totalUsd)}
+      showTestnetNative={context.profile.mode === 'testnet'}
     />
   );
 }

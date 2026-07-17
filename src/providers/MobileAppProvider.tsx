@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, type PropsWithChildren } from 'react';
 
 import { PrivyBridge } from '@/@web3/providers/privy/PrivyBridge';
+import { createSimulatorPreviewAdapter } from '@/@web3/providers/preview/simulatorPreviewAdapter';
 import type { WalletAdapter } from '@/@web3/types/wallet';
+import { MOBILE_ENV } from '@/config/env';
 import {
   DEFAULT_NETWORK_MODE,
   getNetworkProfile,
@@ -13,6 +15,12 @@ import {
 } from '@/hooks/useMobileAppController';
 
 const MobileAppContext = createContext<MobileAppController | null>(null);
+const simulatorPreviewAdapter = MOBILE_ENV.simulatorPreview.enabled && process.env.NODE_ENV !== 'production'
+  ? createSimulatorPreviewAdapter(
+      MOBILE_ENV.simulatorPreview.ownerAddress,
+      MOBILE_ENV.simulatorPreview.solanaAddress
+    )
+  : null;
 
 export function MobileAppProvider({ children }: PropsWithChildren) {
   const [networkMode, setNetworkMode] = useState<AppNetworkMode>(DEFAULT_NETWORK_MODE);
@@ -24,7 +32,7 @@ export function MobileAppProvider({ children }: PropsWithChildren) {
         <MobileAppControllerProvider
           key={profile.mode}
           networkMode={networkMode}
-          privyAdapter={privyAdapter}
+          privyAdapter={simulatorPreviewAdapter ?? privyAdapter}
           profile={profile}
           setNetworkMode={setNetworkMode}
         >

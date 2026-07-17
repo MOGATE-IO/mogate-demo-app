@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 
 import { getSignerProviderInfo } from '@/@web3/config/signerProviders';
 import { useBalance } from '@/@web3/hooks/useBalance';
@@ -10,7 +10,10 @@ import { useGiftcardCatalogue } from '@/features/catalogue/hooks/useGiftcardCata
 import { usePaymentBalances } from '@/features/checkout/hooks/usePaymentBalances';
 import { useUniversalAccountMint } from '@/features/checkout/hooks/useUniversalAccountMint';
 import { useGiftcardInventory } from '@/features/inventory/hooks/useGiftcardInventory';
+import type { GiftcardAction } from '@/features/inventory/services/giftcardActions';
 import { useTopUpSheet, type TopUpProvider } from '@/features/topup/hooks/useTopUpSheet';
+import type { AccountSection } from '@/navigation/account';
+import { REQUEST_TOOL_PATHS, type RequestTool } from '@/navigation/request';
 import { MAIN_TAB_PATHS, type MainTab } from '@/navigation/tabs';
 import type {
   AppScreenContext,
@@ -76,6 +79,8 @@ export function useMobileAppController({
   });
   const paymentBalances = usePaymentBalances({
     ownerAddress: wallet.snapshot.ownerAddress || wallet.snapshot.address,
+    solanaAddress:
+      wallet.snapshot.linkedSolanaAddress || wallet.snapshot.solanaUaAddress,
     particleBalance: mint.uaProbe?.primaryAssets ?? balance.balance,
     profile
   });
@@ -152,11 +157,11 @@ export function useMobileAppController({
       receiverContact: selection.receiverContact ?? '',
       network: selection.network ?? network,
       paymentMode: selection.paymentMode ?? 'direct',
-      giftcardMode: selection.giftcardMode ?? 'voucher',
+      giftcardMode: selection.giftcardMode ?? 'funded',
       mintMode: selection.mintMode ?? 'public',
       autoMint: selection.autoMint ?? true,
       autoUnwrap: selection.autoUnwrap ?? false,
-      reserveGas: selection.reserveGas ?? false,
+      reserveGas: selection.reserveGas ?? true,
       couponCode: selection.couponCode ?? ''
     };
 
@@ -188,6 +193,32 @@ export function useMobileAppController({
     router.push('/profile/about');
   }, [router]);
 
+  const goToProfile = useCallback(() => {
+    router.push('/profile');
+  }, [router]);
+
+  const goToAccountSection = useCallback((section: AccountSection) => {
+    router.push({
+      pathname: '/account/[section]',
+      params: { section }
+    });
+  }, [router]);
+
+  const goToGiftcardDetails = useCallback((tokenId: string) => {
+    router.push({
+      pathname: '/giftcard/[tokenId]',
+      params: { tokenId }
+    });
+  }, [router]);
+
+  const goToRequestTool = useCallback((tool: RequestTool) => {
+    router.push(REQUEST_TOOL_PATHS[tool]);
+  }, [router]);
+
+  const goToGiftcardAction = useCallback((tokenId: string, action: GiftcardAction) => {
+    router.push(`/giftcard/${encodeURIComponent(tokenId)}/${action}` as Href);
+  }, [router]);
+
   return useMemo(
     () => ({
       profile,
@@ -205,6 +236,11 @@ export function useMobileAppController({
       topUpSheet,
       executeTopUp,
       goToTab,
+      goToProfile,
+      goToAccountSection,
+      goToGiftcardDetails,
+      goToGiftcardAction,
+      goToRequestTool,
       goToProfileAbout,
       goToCheckout,
       prepareCheckout,
@@ -217,6 +253,11 @@ export function useMobileAppController({
       checkoutSelection,
       executeTopUp,
       goToCheckout,
+      goToAccountSection,
+      goToGiftcardDetails,
+      goToGiftcardAction,
+      goToRequestTool,
+      goToProfile,
       goToProfileAbout,
       goToTab,
       inventory,

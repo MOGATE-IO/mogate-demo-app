@@ -1,16 +1,28 @@
-import { Interface, toBeHex } from 'ethers';
+import {
+  AbiCoder,
+  Interface,
+  TypedDataEncoder,
+  concat,
+  formatUnits,
+  isAddress,
+  keccak256,
+  toBeHex,
+  toUtf8Bytes,
+  verifyTypedData
+} from 'ethers';
 
 import {
   ARBITRUM_SEPOLIA_GIFTCARD,
   AUTHORITY_GATEWAY_V3_ABI,
   ERC20_APPROVAL_ABI,
   ERC721_TRANSFER_TOPIC,
-  MOGATE_UA_MINT_GATEWAY_V2_ABI,
+  MOGATE_UA_FUNDED_GATEWAY_ABI,
   ZERO_ADDRESS
 } from '@/config/contracts';
 import type { GatewayVersion } from '@/config/env';
 import { getDefaultNetworkProfile, type RuntimeNetworkProfile } from '@/config/networkProfiles';
 import type { HexString } from '@/@web3/types/wallet';
+import { fetchWithTimeout } from '@/utils/async';
 
 type EncKeyTuple = {
   ctHash: bigint;
@@ -21,6 +33,7 @@ type EncKeyTuple = {
 
 export type PreparedUnsafeCheckout = {
   gatewayVersion: GatewayVersion;
+  chainId?: number;
   gatewayAddress?: HexString;
   checkoutId: string;
   orderId: string;
@@ -32,10 +45,16 @@ export type PreparedUnsafeCheckout = {
   paymentToken: HexString;
   amountAtomic: bigint;
   amountDisplay: string;
+  checkoutTotalDisplay?: string;
   currency: string;
   tokenDecimals: number;
   tokenType: 'native' | 'erc20' | 'fherc20';
+  payer?: HexString;
   paymentRecipient?: HexString;
+  valuePolicy?: 'fixed' | 'top_up_existing' | 'holder_managed';
+  valuePolicyCode?: 0 | 1 | 2;
+  valueIsFixed?: boolean;
+  isMultiToken?: boolean;
   funded?: {
     token: HexString;
     amountAtomic: bigint;
@@ -43,11 +62,28 @@ export type PreparedUnsafeCheckout = {
     currency: string;
     tokenDecimals: number;
   } | null;
+  fundedAssets?: Array<{
+    token: HexString;
+    amountAtomic: bigint;
+    amountDisplay: string;
+    currency: string;
+    tokenDecimals: number;
+  }>;
   gasReserve?: {
     amountAtomic: bigint;
     amountDisplay: string;
     currency: string;
   } | null;
+  signedPermit?: {
+    gasReserveAmount: bigint;
+    nonce: bigint;
+    deadline: bigint;
+    signature: HexString;
+    signer: HexString;
+    fundingHash: HexString;
+    digest: HexString;
+  };
+  requiredNativeValue?: bigint;
 };
 
 export type UaTransactionCall = {
@@ -58,7 +94,8 @@ export type UaTransactionCall = {
 
 const directCheckoutTemplate = {
   checkout: {
-    gatewayVersion: 'v2',
+    gatewayVersion: 'signed-v2',
+    gatewayAddress: '',
     orderId: 'mobile-test-order',
     collection: ARBITRUM_SEPOLIA_GIFTCARD.collection,
     to: '0x0000000000000000000000000000000000000000',
@@ -83,6 +120,28 @@ const directCheckoutTemplate = {
       currency: 'ETH'
     }
   }
+};
+
+const FUNDED_CHECKOUT_DOMAIN_NAME = 'AuthorityFundedGiftcardGateway';
+const FUNDED_CHECKOUT_DOMAIN_VERSION = '2';
+const FUNDING_ASSET_TYPEHASH = keccak256(
+  toUtf8Bytes('FundingAsset(address token,uint256 amount)')
+);
+const FUNDED_CHECKOUT_TYPES = {
+  Checkout: [
+    { name: 'orderIdHash', type: 'bytes32' },
+    { name: 'collection', type: 'address' },
+    { name: 'payer', type: 'address' },
+    { name: 'to', type: 'address' },
+    { name: 'uriHash', type: 'bytes32' },
+    { name: 'feeToken', type: 'address' },
+    { name: 'feeAmount', type: 'uint256' },
+    { name: 'fundingHash', type: 'bytes32' },
+    { name: 'gasReserveAmount', type: 'uint256' },
+    { name: 'valuePolicy', type: 'uint8' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' }
+  ]
 };
 
 export type GiftcardCheckoutIntent = {
@@ -122,9 +181,11 @@ export function getDirectCheckoutTemplate(
       ...directCheckoutTemplate,
       checkout: {
         ...directCheckoutTemplate.checkout,
+        gatewayAddress:
+          profile.gateway.signedAddress || directCheckoutTemplate.checkout.gatewayAddress,
         collection:
-          profile.gateway.legacyCollection ||
           profile.gateway.fundedCollection ||
+          profile.gateway.legacyCollection ||
           directCheckoutTemplate.checkout.collection,
         to: receiver || directCheckoutTemplate.checkout.to
       }
@@ -147,24 +208,156 @@ export function isSameEvmAddress(left?: string | null, right?: string | null) {
   return Boolean(left && right && left.toLowerCase() === right.toLowerCase());
 }
 
+function assertAddress(value: string | undefined, field: string): asserts value is HexString {
+  if (!value || !isAddress(value)) throw new Error(`Prepared checkout ${field} is invalid.`);
+}
+
+function assertBytes32(value: string | undefined, field: string): asserts value is HexString {
+  if (!value || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error(`Prepared checkout ${field} is not a bytes32 value.`);
+  }
+}
+
+export function hashPreparedFundedAssets(
+  funding: NonNullable<PreparedUnsafeCheckout['fundedAssets']>
+) {
+  const coder = AbiCoder.defaultAbiCoder();
+  const elementHashes = funding.map((asset, index) => {
+    assertAddress(asset.token, `funding[${index}].token`);
+    if (asset.amountAtomic <= 0n) {
+      throw new Error(`Prepared checkout funding[${index}] amount must be positive.`);
+    }
+    return keccak256(
+      coder.encode(
+        ['bytes32', 'address', 'uint256'],
+        [FUNDING_ASSET_TYPEHASH, asset.token, asset.amountAtomic]
+      )
+    );
+  });
+  return keccak256(concat(elementHashes));
+}
+
+export function assertPreparedFundedCheckoutIntegrity(
+  checkout: PreparedUnsafeCheckout,
+  ownerAddress: string,
+  profile: RuntimeNetworkProfile = getDefaultNetworkProfile(),
+  nowSeconds = BigInt(Math.floor(Date.now() / 1000))
+) {
+  if (checkout.gatewayVersion !== 'signed-v2') return null;
+
+  assertAddress(ownerAddress, 'connected payer');
+  assertAddress(checkout.gatewayAddress, 'gateway');
+  assertAddress(checkout.collection, 'collection');
+  assertAddress(checkout.payer, 'payer');
+  assertAddress(checkout.to, 'receiver');
+  assertAddress(checkout.paymentToken, 'service fee token');
+  if (!checkout.orderId || checkout.orderId !== checkout.checkoutId) {
+    throw new Error('Prepared checkout order ID does not match its checkout ID.');
+  }
+  if (!checkout.uri.trim()) throw new Error('Prepared checkout metadata URI is empty.');
+  if (checkout.chainId !== profile.ua.targetChainId) {
+    throw new Error(`Prepared checkout targets chain ${checkout.chainId}, not ${profile.ua.targetChainId}.`);
+  }
+  if (!isSameEvmAddress(checkout.gatewayAddress, profile.gateway.signedAddress)) {
+    throw new Error('Prepared checkout gateway does not match the configured funded gateway.');
+  }
+  if (!isSameEvmAddress(checkout.collection, profile.gateway.fundedCollection)) {
+    throw new Error('Prepared checkout collection does not match the configured funded collection.');
+  }
+  if (!isSameEvmAddress(checkout.payer, ownerAddress)) {
+    throw new Error('Prepared checkout payer does not match the connected wallet.');
+  }
+  if (!isSameEvmAddress(checkout.to, ownerAddress)) {
+    throw new Error('Prepared checkout receiver does not match the connected wallet.');
+  }
+
+  const permit = checkout.signedPermit;
+  const funding = checkout.fundedAssets ?? [];
+  if (!permit || funding.length === 0 || funding.length > 16) {
+    throw new Error('Prepared checkout is missing valid signed funding terms.');
+  }
+  if (!/^0x[0-9a-fA-F]{130}$/.test(permit.signature)) {
+    throw new Error('Prepared checkout EIP-712 signature must be exactly 65 bytes.');
+  }
+  assertAddress(permit.signer, 'backend signer');
+  assertBytes32(permit.fundingHash, 'funding hash');
+  assertBytes32(permit.digest, 'EIP-712 digest');
+  if (permit.deadline <= nowSeconds) throw new Error('Prepared checkout EIP-712 permit has expired.');
+  if (checkout.valuePolicyCode == null || checkout.valuePolicyCode < 0 || checkout.valuePolicyCode > 2) {
+    throw new Error('Prepared checkout value policy is invalid.');
+  }
+
+  const fundingHash = hashPreparedFundedAssets(funding);
+  if (fundingHash.toLowerCase() !== permit.fundingHash.toLowerCase()) {
+    throw new Error('Prepared checkout funding hash does not match its funding assets.');
+  }
+  const calculatedNativeValue =
+    (checkout.paymentToken.toLowerCase() === ZERO_ADDRESS ? checkout.amountAtomic : 0n) +
+    funding.reduce(
+      (sum, asset) => sum + (asset.token.toLowerCase() === ZERO_ADDRESS ? asset.amountAtomic : 0n),
+      permit.gasReserveAmount
+    );
+  if (checkout.requiredNativeValue !== calculatedNativeValue) {
+    throw new Error('Prepared checkout native value does not match its signed assets and reserve.');
+  }
+
+  const domain = {
+    name: FUNDED_CHECKOUT_DOMAIN_NAME,
+    version: FUNDED_CHECKOUT_DOMAIN_VERSION,
+    chainId: checkout.chainId,
+    verifyingContract: checkout.gatewayAddress
+  };
+  const message = {
+    orderIdHash: keccak256(toUtf8Bytes(checkout.orderId)),
+    collection: checkout.collection,
+    payer: checkout.payer,
+    to: checkout.to,
+    uriHash: keccak256(toUtf8Bytes(checkout.uri)),
+    feeToken: checkout.paymentToken,
+    feeAmount: checkout.amountAtomic,
+    fundingHash,
+    gasReserveAmount: permit.gasReserveAmount,
+    valuePolicy: checkout.valuePolicyCode,
+    nonce: permit.nonce,
+    deadline: permit.deadline
+  };
+  const digest = TypedDataEncoder.hash(domain, FUNDED_CHECKOUT_TYPES, message);
+  if (digest.toLowerCase() !== permit.digest.toLowerCase()) {
+    throw new Error('Prepared checkout EIP-712 digest does not match its signed parameters.');
+  }
+  const recoveredSigner = verifyTypedData(
+    domain,
+    FUNDED_CHECKOUT_TYPES,
+    message,
+    permit.signature
+  );
+  if (!isSameEvmAddress(recoveredSigner, permit.signer)) {
+    throw new Error('Prepared checkout signature does not recover its declared backend signer.');
+  }
+
+  return { digest, fundingHash, recoveredSigner };
+}
+
 export function assertCheckoutReceiverIsOwner(checkout: PreparedUnsafeCheckout, ownerAddress: string) {
   if (!isAddressConfigured(ownerAddress)) {
     throw new Error('Owner EOA is missing or invalid.');
   }
 
-  if (!isAddressConfigured(checkout.to)) {
-    throw new Error('Prepared checkout receiver is missing or invalid.');
+  const executionAddress = checkout.payer ?? checkout.to;
+  if (!isAddressConfigured(executionAddress)) {
+    throw new Error('Prepared checkout payer is missing or invalid.');
   }
 
-  if (!isSameEvmAddress(checkout.to, ownerAddress)) {
+  if (!isSameEvmAddress(executionAddress, ownerAddress)) {
     throw new Error(
-      `Prepared checkout receiver ${checkout.to} does not match owner EOA ${ownerAddress}. In-place UA mint requires checkout.to to be the signing EOA.`
+      `Prepared checkout payer ${executionAddress} does not match owner EOA ${ownerAddress}. In-place UA mint must execute from the signed payer.`
     );
   }
 }
 
 function normalizeGatewayVersion(value: unknown): GatewayVersion {
-  return value === 'v0' ? 'v0' : 'v2';
+  if (value === 'v0' || value === 'signed-v1' || value === 'signed-v2') return value;
+  return 'signed-v2';
 }
 
 function parseCtHash(value: unknown): bigint {
@@ -248,6 +441,107 @@ function parseOptionalGasReserve(raw: any) {
   };
 }
 
+function parseSignedFundedAsset(raw: any) {
+  const token = normalizeHex(raw?.token ?? ZERO_ADDRESS);
+  const amountAtomic = BigInt(raw?.amount ?? raw?.amount_atomic ?? 0);
+  const tokenDecimals = Number(
+    raw?.decimals ?? (token.toLowerCase() === ZERO_ADDRESS ? 18 : 6)
+  );
+  const currency = String(
+    raw?.symbol ?? (token.toLowerCase() === ZERO_ADDRESS ? 'ETH' : 'TOKEN')
+  );
+  return {
+    token,
+    amountAtomic,
+    amountDisplay: formatUnits(amountAtomic, tokenDecimals),
+    currency,
+    tokenDecimals
+  };
+}
+
+function normalizeSignedFundedCheckout(
+  raw: Record<string, any>,
+  evm: Record<string, any>,
+  signed: Record<string, any>
+): PreparedUnsafeCheckout {
+  if (raw.status !== 'prepared') {
+    throw new Error(`Funded checkout is not prepared yet (status: ${String(raw.status ?? 'unknown')}).`);
+  }
+  if (raw.prepared?.giftcard_type !== 'funded') {
+    throw new Error('Prepared checkout is not a funded giftcard payload.');
+  }
+  if (evm.mode !== 'atomic_checkout' || evm.entrypoint !== 'checkout') {
+    throw new Error('Prepared funded checkout must use the atomic checkout entrypoint.');
+  }
+  if (signed.version !== '2') {
+    throw new Error(`Prepared funded checkout version ${String(signed.version ?? 'unknown')} is unsupported.`);
+  }
+  const serviceFee = signed.service_fee ?? signed.payment ?? {};
+  const permit = signed.permit ?? {};
+  const fundedAssets = Array.isArray(signed.funding)
+    ? signed.funding.map(parseSignedFundedAsset)
+    : [];
+  if (fundedAssets.length === 0) {
+    throw new Error('Signed funded checkout has no value assets.');
+  }
+  const gasReserveAmount = BigInt(
+    permit.gas_reserve_amount ?? permit.gasReserveAmount ?? 0
+  );
+  const paymentToken = normalizeHex(serviceFee.token ?? ZERO_ADDRESS);
+  const tokenDecimals = Number(
+    raw.prepared?.permit?.token_decimals ??
+    (paymentToken.toLowerCase() === ZERO_ADDRESS ? 18 : 6)
+  );
+  const amountAtomic = BigInt(serviceFee.amount ?? 0);
+  const signature = normalizeHex(signed.signature);
+  if (signature === '0x') throw new Error('Signed funded checkout is missing its EIP-712 signature.');
+
+  return {
+    gatewayVersion: 'signed-v2',
+    chainId: Number(signed.chain_id),
+    gatewayAddress: normalizeHex(signed.gateway_address),
+    checkoutId: String(raw.checkout_id ?? signed.order_id),
+    orderId: String(signed.order_id ?? evm.order_id ?? raw.checkout_id),
+    collection: normalizeHex(signed.collection_address),
+    payer: normalizeHex(signed.payer),
+    to: normalizeHex(signed.to),
+    uri: String(signed.uri ?? evm.uri ?? ''),
+    paymentToken,
+    amountAtomic,
+    amountDisplay: formatUnits(amountAtomic, tokenDecimals),
+    checkoutTotalDisplay: String(
+      raw.direct_payment?.amount ?? raw.total_amount ?? formatUnits(amountAtomic, tokenDecimals)
+    ),
+    currency: String(raw.currency ?? (paymentToken.toLowerCase() === ZERO_ADDRESS ? 'ETH' : 'USDC')),
+    tokenDecimals,
+    tokenType: paymentToken.toLowerCase() === ZERO_ADDRESS ? 'native' : 'erc20',
+    paymentRecipient: isAddressConfigured(serviceFee.recipient)
+      ? normalizeHex(serviceFee.recipient)
+      : undefined,
+    valuePolicy: signed.value_policy ?? 'fixed',
+    valuePolicyCode: Number(signed.value_policy_code ?? 0) as 0 | 1 | 2,
+    valueIsFixed: signed.value_is_fixed ?? signed.value_policy === 'fixed',
+    isMultiToken: signed.is_multi_token ?? fundedAssets.length > 1,
+    funded: fundedAssets[0] ?? null,
+    fundedAssets,
+    gasReserve: {
+      amountAtomic: gasReserveAmount,
+      amountDisplay: formatUnits(gasReserveAmount, 18),
+      currency: 'ETH'
+    },
+    signedPermit: {
+      gasReserveAmount,
+      nonce: BigInt(permit.nonce ?? 0),
+      deadline: BigInt(permit.deadline ?? 0),
+      signature,
+      signer: normalizeHex(signed.signer),
+      fundingHash: normalizeHex(signed.funding_hash),
+      digest: normalizeHex(signed.digest)
+    },
+    requiredNativeValue: BigInt(signed.required_native_value ?? 0)
+  };
+}
+
 function normalizeDirectPayload(
   raw: Record<string, any>,
   receiverFallback: string,
@@ -278,6 +572,13 @@ function normalizeDirectPayload(
     paymentToken: normalizeHex(checkout.paymentToken ?? checkout.payment_token ?? ZERO_ADDRESS),
     amountAtomic: BigInt(checkout.amountAtomic ?? checkout.amount_atomic ?? 0),
     amountDisplay: String(checkout.amountDisplay ?? checkout.amount_display ?? '0'),
+    checkoutTotalDisplay: String(
+      checkout.checkoutTotalDisplay ??
+      checkout.checkout_total_display ??
+      checkout.amountDisplay ??
+      checkout.amount_display ??
+      '0'
+    ),
     currency: String(checkout.currency ?? 'ETH'),
     tokenDecimals,
     tokenType: checkout.tokenType ?? checkout.token_type ?? 'native',
@@ -298,6 +599,9 @@ function normalizeWebCheckout(
   const evm = permit?.execution?.evm;
   if (!permit || !evm) {
     throw new Error('Prepared checkout is missing prepared.permit.execution.evm.');
+  }
+  if (evm.funded_checkout) {
+    return normalizeSignedFundedCheckout(raw, evm, evm.funded_checkout);
   }
 
   const tokenType = (evm.token_type ?? 'native') as PreparedUnsafeCheckout['tokenType'];
@@ -332,6 +636,7 @@ function normalizeWebCheckout(
     paymentToken: normalizeHex(evm.token_address || ZERO_ADDRESS),
     amountAtomic,
     amountDisplay,
+    checkoutTotalDisplay: amountDisplay,
     currency: String(raw.currency ?? 'USD'),
     tokenDecimals,
     tokenType,
@@ -394,7 +699,7 @@ export async function fetchPreparedCheckout(
     throw new Error('Checkout API path is not configured. Paste prepared checkout JSON instead.');
   }
 
-  const response = await fetch(profile.checkoutEndpoint, {
+  const response = await fetchWithTimeout(profile.checkoutEndpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/json'
@@ -407,7 +712,7 @@ export async function fetchPreparedCheckout(
         intent
       )
     )
-  });
+  }, 20_000, 'Checkout preparation did not start within 20 seconds. Check the API connection and try again.');
 
   if (!response.ok) {
     const body = await response.text();
@@ -415,7 +720,7 @@ export async function fetchPreparedCheckout(
   }
 
   const body = (await response.json()) as Record<string, any>;
-  if (body.prepared?.permit?.execution?.evm) {
+  if (body.status === 'prepared' && body.prepared?.permit?.execution?.evm) {
     return assertPreparedCheckoutMatchesProfile(normalizeWebCheckout(body, receiver, profile), profile);
   }
   if (body.checkout) {
@@ -450,14 +755,19 @@ async function pollPreparedCheckout(
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    const response = await fetch(getCheckoutStatusEndpoint(profile, checkoutId));
+    const response = await fetchWithTimeout(
+      getCheckoutStatusEndpoint(profile, checkoutId),
+      {},
+      12_000,
+      `Checkout ${checkoutId} status did not respond within 12 seconds.`
+    );
     if (!response.ok) {
       throw new Error(`Checkout status failed ${response.status}: ${await response.text()}`);
     }
 
     const body = (await response.json()) as Record<string, any>;
     throwIfCheckoutFailed(body);
-    if (body.prepared?.permit?.execution?.evm) {
+    if (body.status === 'prepared' && body.prepared?.permit?.execution?.evm) {
       return assertPreparedCheckoutMatchesProfile(
         normalizeWebCheckout(body, receiver, profile),
         profile
@@ -485,6 +795,7 @@ function buildGiftcardCheckoutCreateRequest(
   const brandId = intent?.merchantId || 'mogate_giftcard';
   const cluster = profile.mode === 'mainnet' ? 'mainnet' : 'testnet';
   const network = resolveCheckoutNetwork(profile, intent);
+  const giftcardMode = intent?.giftcardMode ?? 'funded';
   const context: Record<string, unknown> = {
     provider,
     brand_id: brandId,
@@ -497,11 +808,11 @@ function buildGiftcardCheckoutCreateRequest(
       wallet_address: receiver
     },
     encryption_mode: 'fhenix_cofhe',
-    funding_mode: intent?.giftcardMode ?? 'voucher',
+    payer_wallet: receiver,
+    funding_mode: giftcardMode,
     mint_mode: intent?.mintMode ?? 'public',
     auto_mint: intent?.autoMint ?? true,
     auto_unwrap: intent?.autoUnwrap ?? false,
-    reserved_gas: intent?.reserveGas ?? false,
     region: intent?.region ?? 'GLOBAL'
   };
 
@@ -511,12 +822,14 @@ function buildGiftcardCheckoutCreateRequest(
 
   return {
     product_type: 'giftcard',
+    giftcard_type: giftcardMode === 'funded' ? 'funded' : 'encrypted',
     flow: 'atomic_onchain',
     voucher_code: intent?.couponCode?.trim() || undefined,
     system: {
+      backing_mode: giftcardMode === 'funded' ? 'onchain_funded' : 'encrypted_code',
       payment_path: 'direct',
       sponsored: false,
-      security_mode: 'unsafe',
+      security_mode: giftcardMode === 'funded' ? 'safe' : 'unsafe',
       cluster,
       payment_method: paymentOption.payment_method,
       payment_currency: paymentOption.payment_currency,
@@ -524,7 +837,17 @@ function buildGiftcardCheckoutCreateRequest(
       token_decimals: paymentOption.token_decimals ?? (paymentOption.token_type === 'native' ? 18 : 6),
       token_type: paymentOption.token_type ?? 'erc20',
       is_confidential: Boolean(paymentOption.is_confidential),
-      payment_execution_mode: paymentOption.execution_mode ?? 'atomic_checkout'
+      payment_execution_mode: paymentOption.execution_mode ?? 'atomic_checkout',
+      reserved_gas: {
+        enabled: intent?.reserveGas ?? true,
+        source: intent?.reserveGas === false ? 'none' : 'direct'
+      },
+      funded: giftcardMode === 'funded'
+        ? {
+            value_policy: 'fixed',
+            is_multi_token: false
+          }
+        : undefined
     },
     context
   };
@@ -569,7 +892,12 @@ async function fetchCheckoutPaymentOptions(
     network,
     cluster: profile.mode
   });
-  const response = await fetch(`${profile.checkoutInitEndpoint}?${params.toString()}`);
+  const response = await fetchWithTimeout(
+    `${profile.checkoutInitEndpoint}?${params.toString()}`,
+    {},
+    12_000,
+    'Payment options did not load within 12 seconds. Check the API connection and try again.'
+  );
   if (!response.ok) {
     throw new Error(`Checkout init failed ${response.status}: ${await response.text()}`);
   }
@@ -646,40 +974,32 @@ function buildUnsafeCheckoutCalls(
   };
 }
 
-function resolveV2Gateway(
+function buildSignedFundedCheckoutCalls(
   checkout: PreparedUnsafeCheckout,
   profile: RuntimeNetworkProfile = getDefaultNetworkProfile()
 ) {
-  const gateway = checkout.gatewayAddress ?? normalizeHex(profile.gateway.v2Address);
-  if (!isAddressConfigured(gateway)) {
-    throw new Error(`V2 mint gateway address is not configured for ${profile.label}.`);
+  const gatewayAddress = checkout.gatewayAddress ?? normalizeHex(profile.gateway.signedAddress);
+  if (!isAddressConfigured(gatewayAddress)) {
+    throw new Error(`Signed funded gateway address is not configured for ${profile.label}.`);
   }
-  return gateway;
-}
-
-function resolvePaymentRecipient(
-  checkout: PreparedUnsafeCheckout,
-  profile: RuntimeNetworkProfile = getDefaultNetworkProfile()
-) {
-  const recipient = checkout.paymentRecipient;
-  if (isAddressConfigured(recipient)) return normalizeHex(recipient);
-  if (checkout.amountAtomic > 0n) {
-    throw new Error('V2 payment recipient is missing from the backend checkout payload.');
+  if (!checkout.signedPermit) {
+    throw new Error('Signed funded checkout is missing its permit tuple.');
   }
-  return ZERO_ADDRESS;
-}
+  if (checkout.chainId !== profile.ua.targetChainId) {
+    throw new Error(
+      `Signed checkout targets chain ${checkout.chainId}, not ${profile.ua.targetChainId}.`
+    );
+  }
+  const fundedAssets = checkout.fundedAssets ?? [];
+  if (fundedAssets.length === 0) {
+    throw new Error('Signed funded checkout is missing value assets.');
+  }
 
-function buildV2CheckoutCalls(
-  checkout: PreparedUnsafeCheckout,
-  profile: RuntimeNetworkProfile = getDefaultNetworkProfile()
-) {
-  const gatewayAddress = resolveV2Gateway(checkout, profile);
-  const paymentRecipient = resolvePaymentRecipient(checkout, profile);
-  const gatewayInterface = new Interface(MOGATE_UA_MINT_GATEWAY_V2_ABI);
   const erc20Interface = new Interface(ERC20_APPROVAL_ABI);
+  const gatewayInterface = new Interface(MOGATE_UA_FUNDED_GATEWAY_ABI);
   const transactions: UaTransactionCall[] = [];
-
   const paymentIsNative = checkout.paymentToken.toLowerCase() === ZERO_ADDRESS;
+
   if (!paymentIsNative && checkout.amountAtomic > 0n) {
     transactions.push({
       to: checkout.paymentToken,
@@ -688,25 +1008,29 @@ function buildV2CheckoutCalls(
     });
   }
 
-  const funded = checkout.funded;
-  const fundedAmount = funded?.amountAtomic ?? 0n;
-  const fundedToken = funded?.token ?? ZERO_ADDRESS;
-  const fundingIsNative = fundedToken.toLowerCase() === ZERO_ADDRESS;
-  if (funded && fundedAmount > 0n && !fundingIsNative) {
+  for (const asset of fundedAssets) {
+    if (asset.token.toLowerCase() === ZERO_ADDRESS) continue;
     transactions.push({
-      to: fundedToken,
-      data: erc20Interface.encodeFunctionData('approve', [checkout.collection, fundedAmount]) as HexString,
+      to: asset.token,
+      data: erc20Interface.encodeFunctionData('approve', [checkout.collection, asset.amountAtomic]) as HexString,
       value: '0x0'
     });
   }
 
-  const gasReserveAmount = checkout.gasReserve?.amountAtomic ?? 0n;
-  const nativeValue =
+  const calculatedNativeValue =
     (paymentIsNative ? checkout.amountAtomic : 0n) +
-    (fundingIsNative ? fundedAmount : 0n) +
-    gasReserveAmount;
+    fundedAssets.reduce(
+      (total, asset) => total + (asset.token.toLowerCase() === ZERO_ADDRESS ? asset.amountAtomic : 0n),
+      checkout.signedPermit.gasReserveAmount
+    );
+  if (
+    checkout.requiredNativeValue != null &&
+    checkout.requiredNativeValue !== calculatedNativeValue
+  ) {
+    throw new Error('Backend required_native_value does not match signed checkout assets.');
+  }
 
-  const checkoutData = gatewayInterface.encodeFunctionData('checkoutFundedV2', [
+  const checkoutData = gatewayInterface.encodeFunctionData('checkout', [
     {
       orderId: checkout.orderId,
       collection: checkout.collection,
@@ -715,26 +1039,24 @@ function buildV2CheckoutCalls(
     },
     {
       token: checkout.paymentToken,
-      amount: checkout.amountAtomic,
-      recipient: paymentRecipient
+      amount: checkout.amountAtomic
     },
+    fundedAssets.map((asset) => ({ token: asset.token, amount: asset.amountAtomic })),
     {
-      valueToken: fundedToken,
-      valueAmount: fundedAmount,
-      gasReserveAmount
-    }
+      gasReserveAmount: checkout.signedPermit.gasReserveAmount,
+      nonce: checkout.signedPermit.nonce,
+      deadline: checkout.signedPermit.deadline
+    },
+    checkout.valuePolicyCode ?? 0,
+    checkout.signedPermit.signature
   ]) as HexString;
-
   transactions.push({
     to: gatewayAddress,
     data: checkoutData,
-    value: toBeHex(nativeValue) as HexString
+    value: toBeHex(calculatedNativeValue) as HexString
   });
 
-  return {
-    chainId: profile.ua.targetChainId,
-    transactions
-  };
+  return { chainId: profile.ua.targetChainId, transactions };
 }
 
 export function buildGiftcardMintCalls(
@@ -742,16 +1064,25 @@ export function buildGiftcardMintCalls(
   profile: RuntimeNetworkProfile = getDefaultNetworkProfile()
 ) {
   if (checkout.gatewayVersion === 'v0') return buildUnsafeCheckoutCalls(checkout, profile);
-  return buildV2CheckoutCalls(checkout, profile);
+  if (checkout.gatewayVersion === 'signed-v1') {
+    throw new Error('This checkout uses the legacy funded signature. Prepare it again with gateway v2.');
+  }
+  if (checkout.gatewayVersion === 'signed-v2') {
+    return buildSignedFundedCheckoutCalls(checkout, profile);
+  }
+  throw new Error(`Unsupported gateway version: ${checkout.gatewayVersion}`);
 }
 
 export function describeMintPlan(checkout: PreparedUnsafeCheckout) {
-  const fundedAmount = checkout.funded?.amountAtomic ?? 0n;
+  const fundedAssets = checkout.fundedAssets ?? (checkout.funded ? [checkout.funded] : []);
+  const fundedAmount = fundedAssets.reduce((total, asset) => total + asset.amountAtomic, 0n);
   const gasReserveAmount = checkout.gasReserve?.amountAtomic ?? 0n;
   return {
     gatewayVersion: checkout.gatewayVersion,
-    payment: `${checkout.amountDisplay} ${checkout.currency}`,
-    funded: fundedAmount > 0n ? `${checkout.funded?.amountDisplay} ${checkout.funded?.currency}` : 'disabled',
+    payment: `${checkout.checkoutTotalDisplay ?? checkout.amountDisplay} ${checkout.currency}`,
+    funded: fundedAmount > 0n
+      ? fundedAssets.map((asset) => `${asset.amountDisplay} ${asset.currency}`).join(' + ')
+      : 'disabled',
     gasReserve:
       gasReserveAmount > 0n
         ? `${checkout.gasReserve?.amountDisplay} ${checkout.gasReserve?.currency}`

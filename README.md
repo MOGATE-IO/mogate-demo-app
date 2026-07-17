@@ -1,6 +1,8 @@
-# Mogate UA Mobile Lab
+# Mogate Funded Giftcard Mobile
 
-Expo proof-of-concept for Particle Network Universal Accounts in strict EIP-7702 in-place mode. The current default path boots on Testnet/Arbitrum Sepolia and targets the new v2 atomic mint/fund/reserve gateway once configured, with the existing Arbitrum Sepolia `AuthorityMintGateway.unsafeCheckout` kept as the manual v0 proof fallback.
+Expo mobile client for OTA-authorized funded giftcard checkout. The current default is direct wallet
+execution against the signed UUPS gateway on Ethereum Sepolia. Particle UA remains a later
+transaction wrapper and is not required by the funded contract or OTA signing flow.
 
 This app is a nested independent git repo under the parent UA lab workspace. Keep mobile history local to `apps/mobile` unless the parent repo is intentionally converted to a formal submodule.
 
@@ -12,8 +14,8 @@ This app is a nested independent git repo under the parent UA lab workspace. Kee
 - Magic path: reference-only signer. It is shown in the switch, but Magic RN packages are not bundled until their Expo native dependency tree is SDK 56 clean.
 - Dynamic path: scaffolded planned signer until its RN WaaS connector is wired.
 - Particle RN Auth path: probe only until a working 7702 authorization method is proven.
-- Target chain default: Arbitrum One `42161`.
-- Gateway mode default: v2 atomic mint/fund/reserve.
+- Target chain default: Ethereum Sepolia `11155111`.
+- Gateway mode default: `signed-v2` atomic fee/backing/reserve checkout.
 - Runtime network switch: Mainnet/Testnet profiles are code-level config for chain IDs, checkout/catalogue paths, gateway addresses, and onramp settings.
 - No silent mainnet fallback.
 - No default undelegate. Particle UA and Mogate7702 can replace delegation when each flow needs it.
@@ -74,29 +76,35 @@ Local Android dev build status:
 Local iOS dev build status:
 
 - `expo prebuild --clean` generates iOS and installs Pods.
-- Building the iOS simulator app on this machine is blocked by Xcode 16.2 / Swift 6.0.3 because Expo SDK 56 `expo-modules-jsi` declares Swift tools 6.2.
+- The development client is running on the iPhone 17 Pro simulator with iOS 26.5.
 
 ## Environment
 
-Only these env values belong in `apps/mobile/.env`:
+The checked-in example contains the active Sepolia addresses. Local credentials belong in
+`apps/mobile/.env`:
 
 ```bash
 EXPO_API_BASE=http://localhost:4000
 EXPO_PUBLIC_PRIVY_APP_ID=
 EXPO_PUBLIC_PRIVY_CLIENT_ID=
 EXPO_PUBLIC_DYNAMIC_ENVIRONMENT_ID=
+EXPO_PUBLIC_MINT_GATEWAY_VERSION=signed-v2
+EXPO_PUBLIC_FUNDED_GATEWAY_ADDRESS=0x5915cBB93c96C5d3D0eCBa39dD396ef959D8Af13
+EXPO_PUBLIC_FUNDED_GIFTCARD_COLLECTION=0x557ceE3F7B829169251d6eAA9FCC3211C1008E0D
 ```
 
-Wallet stack, UA target, API paths, Particle UA config, and gateway addresses are code-level config, not env. Update:
+Wallet stack, UA target, API paths, and public route defaults remain code-level config. Update:
 
 - `src/@web3/config/walletStack.ts` for the active signer stack.
 - `src/config/networkProfiles.ts` for Testnet/Mainnet chain IDs, backend paths, gateway addresses, and onramp defaults.
 
 The mobile client builds checkout, catalogue, reconciliation, Privy onramp, and Transak fallback URLs from `EXPO_API_BASE` plus fixed API paths in `networkProfiles.ts`.
 The catalogue is not mocked in the handler app. `${EXPO_API_BASE}/mogate/giftcard/brands` must return the real merchant list, including the Mogate Giftcard 0.1 USD product when testing that mint path.
-For v2 funded checkouts, the local demo server can also prepare unsigned `checkoutFundedV2` parameters from its `MOGATE_*` config. The user still signs and sends through Particle UA EIP-7702 in-place; the server does not mint with a private key.
+OTA prepares a backend-signed `checkout` payload. The user approves the exact fee/backing amounts
+and sends the transaction; the server does not mint with a private key.
 
-`npm --workspace apps/mobile run preflight` reads `.env.example` as safe defaults, then overlays `.env` and shell environment variables. For the current Privy login/top-up milestone, only Privy IDs and `EXPO_API_BASE` are required. Particle UA minting remains blocked until the Particle project and v2 gateway are configured in code.
+`npm --workspace apps/mobile run preflight` reads `.env.example`, then overlays `.env` and shell
+variables. Direct funded checkout can be ready while Particle UA remains blocked on Sepolia.
 
 After a successful UA mint, the app posts to `${EXPO_API_BASE}/api/checkouts/reconcile`; the demo server stores records in `.mogate-flow/checkout-reconciliations.jsonl`.
 
@@ -113,20 +121,22 @@ Particle native config is not part of the default Privy login/top-up development
 
 ## Mint Flow
 
-1. Connect an embedded EOA signer on the default Mainnet/Arbitrum profile.
-2. Probe UA.
-3. Load a prepared checkout from backend or paste prepared JSON.
-4. Send UA mint.
+1. Connect the Privy embedded EOA.
+2. Select a funded catalogue product; fixed value and direct gas reserve are defaults.
+3. OTA returns a signed `checkout` with separate service fee, backing, reserve, and value policy.
+4. The client sends required ERC20 approvals and calls the funded gateway proxy.
+5. The client submits the target-chain transaction hash to OTA reconciliation.
 
-The owner EOA is the NFT receiver and onchain executor. Existing supported primary assets can stay on their original supported chains; top-up is optional for adding fresh assets.
+The owner EOA pays transaction gas and receives the funded NFT. Particle UA may later transport
+the same calls after cross-chain asset preparation.
 
 The app now has five main tabs:
 
-- Home: user balance, top-up, recent activity, and trending giftcards.
-- Search: API-backed catalogue, merchant detail, amount selection, and checkout launch.
+- Catalogue: API-backed merchants, amount selection, and checkout launch.
+- Updates: account and product activity.
 - Request: draft payment requests.
+- Leaderboard: catalogue activity ranking.
 - Inventory: protected owned-giftcard area with post-mint token state.
-- Profile: identity, network mode, signer stack, and readiness gates.
 
 The app blocks UA mint signing when `checkout.to` does not match the connected owner EOA. This is intentional: in-place UA minting means the signer, executor, and NFT receiver are the same EOA.
 
@@ -146,7 +156,7 @@ The “Product readiness” card also blocks obvious setup mistakes before signi
 - Missing Privy app/client IDs for the active network profile.
 - Non-product signer stack.
 - Missing Particle UA project config for minting.
-- Missing v2 gateway or funded collection address.
+- Missing signed funded gateway or funded collection address.
 
 The same checks are available from the command line:
 
@@ -159,15 +169,16 @@ For v0 ERC20 payments, the app batches:
 1. `approve(authorityGateway, amount)`
 2. `unsafeCheckout(checkout, paymentToken, amount)`
 
-For v2 ERC20 funded giftcards, the app can batch:
+For signed ERC20 funded giftcards, the app sends:
 
-1. `approve(v2Gateway, checkoutPaymentAmount)`
-2. `approve(fundedGiftcardCollection, fundedGiftcardAmount)`
-3. `checkoutFundedV2(checkout, payment, funding)`
+1. `approve(fundedGiftcardCollection, backingAmount)`
+2. `approve(gatewayProxy, serviceFeeAmount)`
+3. `gatewayProxy.checkout(checkout, fee, funding, permit, signature)`
 
-For native v2 funding/reserved gas, `checkoutFundedV2` carries `value = nativePayment + nativeFunding + reservedGas`.
+For native funding/reserve/fee, `checkout` carries their exact signed total in `msg.value`.
 
-The current deployed v0 gateway mints an unknown token ID into the encrypted collection, so funded value and reserved gas are not atomic in v0. v2 is the preferred funded-giftcard path once deployed.
+The active Sepolia proxy mints backing and direct reserve atomically. The legacy encrypted v0 route
+remains parser-compatible but is not the default funded path.
 
 ## Known Blockers To Prove
 

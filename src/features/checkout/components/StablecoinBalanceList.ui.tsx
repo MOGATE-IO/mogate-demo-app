@@ -6,6 +6,7 @@ import type { SvgProps } from 'react-native-svg';
 
 import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
 import ArbitrumLogo from '@assets/images/network/arbitrum-arb-logo.svg';
+import SolanaLogo from '@assets/images/network/solana-sol-logo.svg';
 import UsdcLogo from '@assets/images/token/usdc.svg';
 import UsdtLogo from '@assets/images/token/usdt.svg';
 import {
@@ -116,7 +117,9 @@ function NetworkLogo({ chainId }: { chainId: number | null }) {
     ? EthereumLogo
     : chainId === 42161 || chainId === 421614
       ? ArbitrumLogo
-      : null;
+      : chainId === 101 || chainId === 103
+        ? SolanaLogo
+        : null;
 
   return (
     <View style={styles.networkLogoFrame}>

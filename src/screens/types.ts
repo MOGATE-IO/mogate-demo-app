@@ -7,6 +7,9 @@ import type { useUniversalAccountMint } from '@/features/checkout/hooks/useUnive
 import type { usePaymentBalances } from '@/features/checkout/hooks/usePaymentBalances';
 import type { useUniversalWallet } from '@/@web3/hooks/useUniversalWallet';
 import type { GiftcardMerchant } from '@/features/catalogue/services/catalogue';
+import type { GiftcardAction } from '@/features/inventory/services/giftcardActions';
+import type { AccountSection } from '@/navigation/account';
+import type { RequestTool } from '@/navigation/request';
 
 export type CheckoutNetwork = 'ethereum' | 'arbitrum';
 export type CheckoutPaymentMode = 'direct' | 'ua7702';
@@ -49,6 +52,11 @@ export type AppScreenContext = {
   };
   topUp: () => void | Promise<void>;
   goToTab: (tab: MainTab) => void;
+  goToProfile: () => void;
+  goToAccountSection: (section: AccountSection) => void;
+  goToGiftcardDetails: (tokenId: string) => void;
+  goToGiftcardAction: (tokenId: string, action: GiftcardAction) => void;
+  goToRequestTool: (tool: RequestTool) => void;
   goToCheckout: (selection: CheckoutSelectionInput) => void;
   prepareCheckout: (selection: CheckoutSelectionInput) => CheckoutSelection;
   updateCheckoutSelection: (selection: Partial<CheckoutSelection>) => void;

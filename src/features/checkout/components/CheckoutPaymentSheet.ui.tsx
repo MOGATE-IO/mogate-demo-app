@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import {
-  Accordion,
   Button,
   Input,
   Label,
@@ -9,12 +9,12 @@ import {
   TextField,
   Typography
 } from 'heroui-native';
-import { Check, CircleAlert, RefreshCw, Wallet } from 'lucide-react-native';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { Check, CircleAlert } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { HeroBottomSheet } from '@/components/HeroBottomSheet.ui';
 import { CheckoutExecutionOverlay } from '@/features/checkout/components/CheckoutExecutionOverlay.ui';
-import { StablecoinBalanceList, TokenLogo } from '@/features/checkout/components/StablecoinBalanceList.ui';
+import { StablecoinPortfolioCard } from '@/features/checkout/components/StablecoinPortfolioCard.ui';
 import type { UniversalAccountMintState } from '@/features/checkout/hooks/useUniversalAccountMint';
 import {
   formatUsdAmount,
@@ -61,10 +61,11 @@ export function CheckoutPaymentSheet({
   targetNativeAmount: number;
   visible: boolean;
 }) {
-  const [balanceOpen, setBalanceOpen] = useState(false);
   const [couponDraft, setCouponDraft] = useState(checkoutSelection?.couponCode ?? '');
   const amount = checkoutSelection?.amount ?? 0;
-  const quotedTotal = mint.preparedCheckout ? Number(mint.preparedCheckout.amountDisplay) : amount;
+  const quotedTotal = mint.preparedCheckout
+    ? Number(mint.preparedCheckout.checkoutTotalDisplay ?? mint.preparedCheckout.amountDisplay)
+    : amount;
   const safeTotal = Number.isFinite(quotedTotal) ? quotedTotal : amount;
   const discount = Math.max(0, amount - safeTotal);
   const directPayment = checkoutSelection?.paymentMode !== 'ua7702';
@@ -83,6 +84,29 @@ export function CheckoutPaymentSheet({
     <>
       <HeroBottomSheet
         description={directPayment ? `Direct USDC on ${profile.ua.chainLabel}` : 'UA7702 stablecoin route'}
+        footer={(
+          <View style={styles.footer}>
+            {mint.preparedCheckout ? (
+              <Button
+                className="w-full rounded-lg"
+                isDisabled={!canMint || !receiverValid || paying}
+                onPress={mint.executeMint}
+                variant="primary"
+              >
+                <Button.Label>Pay {formatUsdAmount(safeTotal)}</Button.Label>
+              </Button>
+            ) : (
+              <Button
+                className="w-full rounded-lg"
+                isDisabled={!amount || loadingCheckout}
+                onPress={mint.loadCheckoutFromBackend}
+                variant="primary"
+              >
+                <Button.Label>Review payment</Button.Label>
+              </Button>
+            )}
+          </View>
+        )}
         onClose={() => {
           if (mint.executionStep === 'idle') onClose();
         }}
@@ -90,7 +114,7 @@ export function CheckoutPaymentSheet({
         visible={visible && mint.executionStep === 'idle'}
       >
         <View style={styles.sheetBody}>
-          <ScrollView
+          <BottomSheetScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -136,105 +160,32 @@ export function CheckoutPaymentSheet({
             </Surface>
 
             <Typography.Heading type="h5">Payment method</Typography.Heading>
-            <Accordion
-              className="rounded-lg"
-              hideSeparator
-              onValueChange={(value: string | undefined) => setBalanceOpen(value === 'usd-balance')}
-              selectionMode="single"
-              value={balanceOpen ? 'usd-balance' : undefined}
-              variant="surface"
-            >
-              <Accordion.Item value="usd-balance">
-                <Accordion.Trigger>
-                  <View style={styles.balanceSummary}>
-                    <View style={styles.tokenPair}>
-                      <TokenLogo size={30} symbol="USDC" />
-                      <View style={styles.overlapToken}>
-                        <TokenLogo size={30} symbol="USDT" />
-                      </View>
-                    </View>
-                    <View style={styles.balanceCopy}>
-                      <Typography color="muted" type="body-xs" weight="semibold">USDC + USDT</Typography>
-                      <Typography.Heading numberOfLines={1} type="h5">
-                        {formatUsdAmount(portfolio.totalUsd)}
-                      </Typography.Heading>
-                    </View>
-                    <View style={styles.targetCopy}>
-                      <Typography color="muted" numberOfLines={1} type="body-xs">{profile.ua.chainLabel}</Typography>
-                      <Typography type="body-sm" weight="semibold">{formatUsdAmount(portfolio.targetUsdc)}</Typography>
-                    </View>
-                  </View>
-                  <Accordion.Indicator />
-                </Accordion.Trigger>
-                <Accordion.Content>
-                  <View style={styles.balanceDetails}>
-                    <StablecoinBalanceList
-                      onSelect={onSelectStablecoin}
-                      rows={portfolio.rows}
-                      selected={selectedStablecoin}
-                      status={balanceStatus}
-                    />
-
-                    {insufficientDirectBalance ? (
-                      <InlineAlert>
-                        Add {formatUsdAmount(safeTotal - portfolio.targetUsdc)} USDC on {profile.ua.chainLabel} for this direct payment.
-                      </InlineAlert>
-                    ) : null}
-                    {missingDirectGas ? (
-                      <InlineAlert>
-                        Add testnet ETH on {profile.ua.chainLabel} for gas.
-                      </InlineAlert>
-                    ) : null}
-                    {balanceErrors.length > 0 ? <InlineAlert>{balanceErrors[0]}</InlineAlert> : null}
-
-                    <View style={styles.balanceActions}>
-                      <Button className="flex-1 rounded-lg" onPress={onTopUp} variant="secondary">
-                        <Wallet color="#18181b" size={17} />
-                        <Button.Label>Top up balance</Button.Label>
-                      </Button>
-                      <Button
-                        accessibilityLabel="Refresh balances"
-                        className="h-12 w-12 rounded-lg"
-                        isIconOnly
-                        onPress={onRefreshBalances}
-                        variant="secondary"
-                      >
-                        {balanceStatus === 'loading' ? (
-                          <ActivityIndicator color="#18181b" size="small" />
-                        ) : (
-                          <RefreshCw color="#18181b" size={18} />
-                        )}
-                      </Button>
-                    </View>
-                  </View>
-                </Accordion.Content>
-              </Accordion.Item>
-            </Accordion>
+            <StablecoinPortfolioCard
+              detailFooter={(
+                <>
+                  {insufficientDirectBalance ? (
+                    <InlineAlert>
+                      Add {formatUsdAmount(safeTotal - portfolio.targetUsdc)} USDC on {profile.ua.chainLabel} for this direct payment.
+                    </InlineAlert>
+                  ) : null}
+                  {missingDirectGas ? (
+                    <InlineAlert>
+                      Add testnet ETH on {profile.ua.chainLabel} for gas.
+                    </InlineAlert>
+                  ) : null}
+                </>
+              )}
+              errors={balanceErrors}
+              onRefresh={onRefreshBalances}
+              onSelect={onSelectStablecoin}
+              onTopUp={onTopUp}
+              portfolio={portfolio}
+              selected={selectedStablecoin}
+              status={balanceStatus}
+            />
 
             {mint.lastError && mint.executionStep === 'idle' ? <InlineAlert>{mint.lastError}</InlineAlert> : null}
-          </ScrollView>
-
-          <View style={styles.footer}>
-            {mint.preparedCheckout ? (
-              <Button
-                className="w-full rounded-lg"
-                isDisabled={!canMint || !receiverValid || paying}
-                onPress={mint.executeMint}
-                variant="primary"
-              >
-                <Button.Label>Pay {formatUsdAmount(safeTotal)}</Button.Label>
-              </Button>
-            ) : (
-              <Button
-                className="w-full rounded-lg"
-                isDisabled={!amount || loadingCheckout}
-                onPress={mint.loadCheckoutFromBackend}
-                variant="primary"
-              >
-                <Button.Label>Review payment</Button.Label>
-              </Button>
-            )}
-          </View>
+          </BottomSheetScrollView>
         </View>
       </HeroBottomSheet>
 
@@ -276,7 +227,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: 12,
-    paddingBottom: 18,
+    paddingBottom: 112,
     paddingHorizontal: 18
   },
   summaryRow: {
@@ -306,38 +257,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingTop: 14
   },
-  balanceSummary: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    gap: 10,
-    minWidth: 0
-  },
-  tokenPair: {
-    flexDirection: 'row',
-    width: 48
-  },
-  overlapToken: {
-    marginLeft: -12
-  },
-  balanceCopy: {
-    flex: 1,
-    gap: 2,
-    minWidth: 0
-  },
-  targetCopy: {
-    alignItems: 'flex-end',
-    gap: 2,
-    maxWidth: 108
-  },
-  balanceDetails: {
-    gap: 12,
-    paddingBottom: 6
-  },
-  balanceActions: {
-    flexDirection: 'row',
-    gap: 8
-  },
   alertRow: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -348,9 +267,9 @@ const styles = StyleSheet.create({
     flex: 1
   },
   footer: {
-    backgroundColor: '#fafafa',
     borderTopColor: '#e4e4e7',
     borderTopWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 12,
     paddingHorizontal: 18,
     paddingTop: 12
   }

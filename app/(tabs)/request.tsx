@@ -1,12 +1,12 @@
 import { AppRouteFrame } from '@/components/AppRouteFrame.ui';
 import { useMobileApp } from '@/providers/MobileAppProvider';
-import { RequestPaymentScreen } from '@/screens/RequestPaymentScreen';
+import { RequestHubScreen } from '@/screens/RequestHubScreen';
 
 export default function RequestRoute() {
   const context = useMobileApp();
   return (
-    <AppRouteFrame tabbed>
-      <RequestPaymentScreen context={context} />
+    <AppRouteFrame scroll={false} tabbed>
+      <RequestHubScreen context={context} />
     </AppRouteFrame>
   );
 }

@@ -1,21 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserProvider, Contract, getAddress, isAddress, toBeHex } from 'ethers';
 
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
 import type { WalletAdapter } from '@/@web3/types/wallet';
+import { generateProgrammablePaymentCode } from '@/features/inventory/services/programmablePaymentCode';
 import {
   loadGiftcardInventory,
   type GiftcardInventoryItem
 } from '@/features/inventory/services/giftcardInventory';
+import {
+  transferGiftcard,
+  unwrapGiftcard as executeGiftcardUnwrap
+} from '@/features/inventory/services/giftcardTransactions';
+import { revealGiftcardCode } from '@/features/inventory/services/giftcardReveal';
 import { toErrorMessage } from '@/utils/errors';
-
-const TRANSFER_ABI = [
-  'function safeTransferFrom(address from, address to, uint256 tokenId)'
-] as const;
-
-type Eip1193Provider = {
-  request: (request: { method: string; params?: unknown[] }) => Promise<unknown>;
-};
 
 export function useGiftcardInventory({
   ownerAddress,
@@ -32,6 +29,8 @@ export function useGiftcardInventory({
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [lastError, setLastError] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [unwrappingId, setUnwrappingId] = useState<string | null>(null);
+  const [generatingCodeId, setGeneratingCodeId] = useState<string | null>(null);
   const loadGeneration = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -45,7 +44,6 @@ export function useGiftcardInventory({
     const generation = ++loadGeneration.current;
     setStatus('loading');
     setLastError(null);
-    setItems([]);
     try {
       const loaded = await loadGiftcardInventory({
         ownerAddress,
@@ -72,59 +70,98 @@ export function useGiftcardInventory({
   }, [refresh, refreshKey]);
 
   const sendGiftcard = useCallback(async (item: GiftcardInventoryItem, recipient: string) => {
-    if (!ownerAddress || !isAddress(ownerAddress)) throw new Error('Connect the owning EVM wallet first.');
-    if (!isAddress(recipient)) throw new Error('Enter a valid EVM recipient address.');
-    if (getAddress(recipient) === getAddress(ownerAddress)) throw new Error('The recipient already owns this wallet.');
-    if (!wallet?.getProvider) throw new Error('The connected wallet cannot send EVM transactions.');
+    if (!ownerAddress) throw new Error('Connect the owning EVM wallet first.');
+    if (!wallet) throw new Error('The connected wallet cannot send EVM transactions.');
 
     setSendingId(item.id);
     setLastError(null);
     try {
-      const rawProvider = await wallet.getProvider() as Eip1193Provider;
-      const chainHex = toBeHex(profile.ua.targetChainId).toLowerCase();
-      try {
-        await rawProvider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: chainHex }]
-        });
-      } catch (error) {
-        const current = String(await rawProvider.request({ method: 'eth_chainId' })).toLowerCase();
-        if (current !== chainHex) throw error;
-      }
-
-      const provider = new BrowserProvider(rawProvider);
-      const signer = await provider.getSigner(ownerAddress);
-      const collection = new Contract(item.collection, TRANSFER_ABI, signer);
-      const transaction = await collection['safeTransferFrom(address,address,uint256)'](
-        getAddress(ownerAddress),
-        getAddress(recipient),
-        BigInt(item.tokenId)
-      );
-      const receipt = await transaction.wait();
-      if (!receipt || receipt.status !== 1) throw new Error('Giftcard transfer reverted.');
+      const transactionHash = await transferGiftcard({
+        item,
+        ownerAddress,
+        profile,
+        recipient,
+        wallet
+      });
       await refresh();
-      return transaction.hash as string;
+      return transactionHash;
     } catch (error) {
       setLastError(toErrorMessage(error));
       throw error;
     } finally {
       setSendingId(null);
     }
-  }, [ownerAddress, profile.ua.targetChainId, refresh, wallet]);
+  }, [ownerAddress, profile, refresh, wallet]);
 
   const totalValue = useMemo(
     () => items.reduce((total, item) => total + (item.value ?? 0), 0),
     [items]
   );
 
+  const unwrapGiftcard = useCallback(async (item: GiftcardInventoryItem) => {
+    if (!ownerAddress) throw new Error('Connect the owning EVM wallet first.');
+    if (!wallet) throw new Error('The connected wallet cannot unwrap this giftcard.');
+
+    setUnwrappingId(item.id);
+    setLastError(null);
+    try {
+      const result = await executeGiftcardUnwrap({ item, ownerAddress, profile, wallet });
+      const revealed = !item.isFunded && item.isEncrypted
+        ? await revealGiftcardCode({ item, ownerAddress, profile, wallet })
+        : null;
+      return {
+        ...result,
+        code: revealed?.code ?? item.giftCode,
+        pinCode: revealed?.pinCode
+      };
+    } catch (error) {
+      setLastError(toErrorMessage(error));
+      throw error;
+    } finally {
+      await refresh().catch(() => undefined);
+      setUnwrappingId(null);
+    }
+  }, [ownerAddress, profile, refresh, wallet]);
+
+  const createPaymentCode = useCallback(async (
+    item: GiftcardInventoryItem,
+    options?: { expirySeconds?: number; ua7702?: boolean }
+  ) => {
+    if (!ownerAddress) throw new Error('Connect the owning EVM wallet first.');
+    if (!wallet) throw new Error('The connected wallet cannot sign payment codes.');
+
+    setGeneratingCodeId(item.id);
+    setLastError(null);
+    try {
+      return await generateProgrammablePaymentCode({
+        expirySeconds: options?.expirySeconds,
+        item,
+        ownerAddress,
+        profile,
+        ua7702: options?.ua7702 ?? false,
+        wallet
+      });
+    } catch (error) {
+      setLastError(toErrorMessage(error));
+      throw error;
+    } finally {
+      setGeneratingCodeId(null);
+    }
+  }, [ownerAddress, profile, wallet]);
+
   return {
     items,
     status,
     lastError,
     sendingId,
+    unwrappingId,
+    generatingCodeId,
     totalValue,
     refresh,
-    sendGiftcard
+    sendGiftcard,
+    unwrapGiftcard,
+    claimGiftcardCode: unwrapGiftcard,
+    createPaymentCode
   };
 }
 

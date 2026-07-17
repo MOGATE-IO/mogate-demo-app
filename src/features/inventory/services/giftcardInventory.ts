@@ -1,6 +1,7 @@
 import {
   Contract,
   JsonRpcProvider,
+  formatUnits,
   getAddress,
   isAddress,
   toUtf8String,
@@ -20,12 +21,20 @@ const INVENTORY_ABI = [
   'function tokenURI(uint256 tokenId) view returns (string)',
   'function name() view returns (string)',
   'function isUnwrapped(uint256 tokenId) view returns (bool)',
-  'function cipherRef(uint256 tokenId) view returns (string)'
+  'function cipherRef(uint256 tokenId) view returns (string)',
+  'function giftcardBalances(uint256 tokenId) view returns (((address token,uint256 amount)[] values,uint256 gasReserve,uint8 valuePolicy,bool isMultiToken) result)',
+  'function gasReserveOf(uint256 tokenId) view returns (uint256)'
+] as const;
+
+const ERC20_METADATA_ABI = [
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)'
 ] as const;
 
 const ERC721_ENUMERABLE_INTERFACE_ID = '0x780e9d63';
 const MAX_ITEMS_PER_COLLECTION = 100;
 const LOG_WINDOW = 9_000;
+const LOG_BATCH_SIZE = 6;
 const MAX_LOG_SPAN = 900_000;
 
 export type GiftcardMetadataAttribute = {
@@ -61,8 +70,21 @@ export type GiftcardInventoryItem = {
   isEncrypted: boolean;
   encryptionType: string | null;
   giftCode: string | null;
+  isFunded: boolean;
+  fundBalances: GiftcardFundBalance[];
+  gasReserveAtomic: string | null;
+  gasReserveDisplay: string | null;
   attributes: GiftcardMetadataAttribute[];
   discovery: 'enumerable' | 'transfer-log';
+};
+
+export type GiftcardFundBalance = {
+  token: HexString;
+  amountAtomic: string;
+  amountDisplay: string;
+  symbol: string;
+  decimals: number;
+  isNative: boolean;
 };
 
 export function getGiftcardCollectionAddresses(profile: RuntimeNetworkProfile): HexString[] {
@@ -151,6 +173,7 @@ async function loadCollection({
       contract,
       discovery,
       profile,
+      provider,
       tokenId
     });
     items.push(item);
@@ -186,29 +209,43 @@ async function scanOwnedTokenIds({
   const ownerTopic = zeroPadValue(owner, 32);
   const candidates = new Set<string>();
   const owned = new Map<string, bigint>();
+  const windows: Array<{ fromBlock: number; toBlock: number }> = [];
 
   for (let toBlock = latest; toBlock >= earliest;) {
     const fromBlock = Math.max(earliest, toBlock - LOG_WINDOW + 1);
-    const logs = await provider.getLogs({
+    windows.push({ fromBlock, toBlock });
+    if (fromBlock === earliest) break;
+    toBlock = fromBlock - 1;
+  }
+
+  for (let offset = 0; offset < windows.length; offset += LOG_BATCH_SIZE) {
+    const batch = windows.slice(offset, offset + LOG_BATCH_SIZE);
+    const logs = (await Promise.all(batch.map(({ fromBlock, toBlock }) => provider.getLogs({
       address: collection,
       fromBlock,
       toBlock,
       topics: [ERC721_TRANSFER_TOPIC, null, ownerTopic]
-    });
+    })))).flat();
+    const newTokenIds: Array<{ topic: string; tokenId: bigint }> = [];
 
     for (const log of logs.reverse()) {
       const tokenTopic = log.topics[3];
       if (!tokenTopic || candidates.has(tokenTopic)) continue;
       candidates.add(tokenTopic);
-      const tokenId = BigInt(tokenTopic);
-      const currentOwner = await optionalRead(() => contract.ownerOf(tokenId), '');
-      if (String(currentOwner).toLowerCase() === owner.toLowerCase()) {
-        owned.set(tokenTopic, tokenId);
-      }
+      newTokenIds.push({ topic: tokenTopic, tokenId: BigInt(tokenTopic) });
     }
 
-    if (owned.size >= balance || fromBlock === earliest) break;
-    toBlock = fromBlock - 1;
+    const currentOwners = await Promise.all(newTokenIds.map(({ tokenId }) =>
+      optionalRead(() => contract.ownerOf(tokenId), '')
+    ));
+    newTokenIds.forEach(({ tokenId, topic }, index) => {
+      const currentOwner = currentOwners[index];
+      if (String(currentOwner).toLowerCase() === owner.toLowerCase()) {
+        owned.set(topic, tokenId);
+      }
+    });
+
+    if (owned.size >= balance) break;
   }
 
   if (owned.size === 0) {
@@ -223,6 +260,7 @@ async function loadToken({
   contract,
   discovery,
   profile,
+  provider,
   tokenId
 }: {
   collection: HexString;
@@ -230,12 +268,15 @@ async function loadToken({
   contract: Contract;
   discovery: 'enumerable' | 'transfer-log';
   profile: RuntimeNetworkProfile;
+  provider: JsonRpcProvider;
   tokenId: bigint;
 }): Promise<GiftcardInventoryItem> {
-  const [metadataUri, isUnwrapped, cipherRef] = await Promise.all([
+  const [metadataUri, isUnwrapped, cipherRef, rawGiftcardBalances, directGasReserve] = await Promise.all([
     optionalRead(() => contract.tokenURI(tokenId), ''),
     optionalRead(() => contract.isUnwrapped(tokenId), false),
-    optionalRead(() => contract.cipherRef(tokenId), '')
+    optionalRead(() => contract.cipherRef(tokenId), ''),
+    optionalRead<unknown | null>(() => contract.giftcardBalances(tokenId), null),
+    optionalRead<bigint | null>(() => contract.gasReserveOf(tokenId), null)
   ]);
   const metadata = await fetchMetadata(String(metadataUri));
   const attributes = metadata?.attributes ?? [];
@@ -245,6 +286,13 @@ async function loadToken({
     ?? metadata?.name?.replace(/\s+giftcard$/i, '')
     ?? collectionName;
   const normalizedEncryption = String(encryptionType ?? '').trim();
+  const backingMode = String(metadata?.properties?.backing_mode ?? '').trim().toLowerCase();
+  const giftcardBalances = parseGiftcardBalanceView(rawGiftcardBalances);
+  const gasReserve = giftcardBalances?.gasReserve ?? directGasReserve;
+  const isFunded = giftcardBalances !== null || backingMode === 'onchain_funded';
+  const fundBalances = giftcardBalances
+    ? await Promise.all(giftcardBalances.values.map((balance) => loadFundBalance(balance, provider)))
+    : [];
 
   return {
     id: `${collection.toLowerCase()}:${tokenId}`,
@@ -262,11 +310,79 @@ async function loadToken({
     externalUrl: metadata?.external_url ?? null,
     networkLabel: profile.ua.chainLabel,
     isUnwrapped: Boolean(isUnwrapped),
-    isEncrypted: Boolean(cipherRef) || Boolean(normalizedEncryption && normalizedEncryption.toLowerCase() !== 'none'),
+    isEncrypted: !isFunded && (
+      Boolean(cipherRef) || Boolean(normalizedEncryption && normalizedEncryption.toLowerCase() !== 'none')
+    ),
     encryptionType: normalizedEncryption || null,
-    giftCode: stringValue(readAttribute(attributes, ['giftcard code', 'gift code', 'voucher code', 'code'])),
+    giftCode: isFunded
+      ? null
+      : stringValue(readAttribute(attributes, ['giftcard code', 'gift code', 'voucher code', 'code'])),
+    isFunded,
+    fundBalances,
+    gasReserveAtomic: gasReserve == null ? null : gasReserve.toString(),
+    gasReserveDisplay: gasReserve == null ? null : formatUnits(gasReserve, 18),
     attributes,
     discovery
+  };
+}
+
+type ParsedGiftcardBalanceView = {
+  values: readonly unknown[];
+  gasReserve: bigint;
+};
+
+/** Normalizes the single Solidity struct returned by the funded collection. */
+export function parseGiftcardBalanceView(raw: unknown): ParsedGiftcardBalanceView | null {
+  if (!Array.isArray(raw)) return null;
+
+  // Ethers normally unwraps a single tuple return. Keep the outer-tuple case for
+  // encoded fixtures and providers that preserve the ABI result container.
+  const candidate = raw.length === 1
+    && Array.isArray(raw[0])
+    && raw[0].length >= 4
+    && Array.isArray(raw[0][0])
+    ? raw[0]
+    : raw;
+  if (!Array.isArray(candidate[0]) || candidate.length < 4) return null;
+
+  try {
+    return {
+      values: candidate[0],
+      gasReserve: BigInt(candidate[1] ?? 0)
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadFundBalance(raw: any, provider: JsonRpcProvider): Promise<GiftcardFundBalance> {
+  const token = getAddress(String(raw?.token ?? raw?.[0])) as HexString;
+  const amount = BigInt(raw?.amount ?? raw?.[1] ?? 0);
+  const isNative = token.toLowerCase() === '0x0000000000000000000000000000000000000000';
+  if (isNative) {
+    return {
+      token,
+      amountAtomic: amount.toString(),
+      amountDisplay: formatUnits(amount, 18),
+      symbol: 'ETH',
+      decimals: 18,
+      isNative: true
+    };
+  }
+
+  const erc20 = new Contract(token, ERC20_METADATA_ABI, provider);
+  const [symbol, decimals] = await Promise.all([
+    optionalRead(() => erc20.symbol(), 'ERC20'),
+    optionalRead(() => erc20.decimals(), 18n)
+  ]);
+  const normalizedDecimals = Number(decimals);
+  return {
+    token,
+    amountAtomic: amount.toString(),
+    amountDisplay: formatUnits(amount, normalizedDecimals),
+    symbol: String(symbol),
+    decimals: normalizedDecimals,
+    isNative: false
   };
 }
 

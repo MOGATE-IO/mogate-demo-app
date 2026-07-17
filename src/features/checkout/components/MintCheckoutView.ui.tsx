@@ -22,9 +22,9 @@ import {
   ArrowRight,
   AtSign,
   CircleAlert,
+  CircleDollarSign,
   LockKeyhole,
   Mail,
-  ShieldCheck,
   Wallet
 } from 'lucide-react-native';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -74,11 +74,13 @@ export type MintCheckoutViewProps = {
   onSelectAmount: (amount: number) => void;
   onSelectRegion: (region: string) => void;
   onSetCouponCode: (couponCode: string) => void;
+  onSetGiftcardMode: (giftcardMode: CheckoutSelection['giftcardMode']) => void;
   onSetReceiverAddress: (receiver: string) => void;
   onSetReceiverContact: (receiver: string) => void;
   onSetReceiverType: (receiverType: CheckoutReceiverType) => void;
   onSetAutoMint: (enabled: boolean) => void;
   onSetAutoUnwrap: (enabled: boolean) => void;
+  onSetReserveGas: (enabled: boolean) => void;
 };
 
 export function MintCheckoutView({
@@ -95,7 +97,9 @@ export function MintCheckoutView({
   onSelectRegion,
   onSetAutoMint,
   onSetAutoUnwrap,
+  onSetReserveGas,
   onSetCouponCode,
+  onSetGiftcardMode,
   onSetReceiverAddress,
   onSetReceiverContact,
   onSetReceiverType,
@@ -195,10 +199,7 @@ export function MintCheckoutView({
         </Surface>
 
         <SectionHeading title="Mint route" />
-        <MintRouteCard
-          encryptionActive={checkoutSelection?.giftcardMode !== 'funded'}
-          profile={profile}
-        />
+        <MintRouteCard giftcardMode={checkoutSelection?.giftcardMode ?? 'funded'} profile={profile} />
 
         <SectionHeading title="Receiver" />
         <ReceiverField
@@ -235,12 +236,18 @@ export function MintCheckoutView({
             </Accordion.Trigger>
             <Accordion.Content>
               <View style={styles.advancedBody}>
-                <AdvancedChoice
-                  disabledLabel="Funded giftcard / next phase"
-                  label="Voucher / direct"
-                  title="Giftcard phase"
-                  value="voucher"
-                />
+                <View style={styles.fieldStack}>
+                  <Typography color="muted" type="body-xs" weight="semibold">Giftcard type</Typography>
+                  <RadioGroup
+                    onValueChange={(value) => {
+                      if (value === 'funded' || value === 'voucher') onSetGiftcardMode(value);
+                    }}
+                    value={checkoutSelection?.giftcardMode ?? 'funded'}
+                  >
+                    <RadioGroup.Item value="funded">Funded value</RadioGroup.Item>
+                    <RadioGroup.Item value="voucher">Encrypted voucher</RadioGroup.Item>
+                  </RadioGroup>
+                </View>
                 <Separator />
                 <AdvancedChoice
                   disabledLabel="Private shield / later phase"
@@ -261,17 +268,12 @@ export function MintCheckoutView({
                   onChange={onSetAutoUnwrap}
                   value={checkoutSelection?.autoUnwrap ?? false}
                 />
-                <View style={styles.settingRow}>
-                  <View style={styles.flexCopy}>
-                    <Typography type="body-sm" weight="semibold">Reserved gas</Typography>
-                    <Typography color="muted" type="body-xs">
-                      Fixed off for the current voucher route.
-                    </Typography>
-                  </View>
-                  <Chip color="default" size="sm" variant="soft">
-                    <Chip.Label>Off</Chip.Label>
-                  </Chip>
-                </View>
+                <SettingSwitch
+                  detail="Store native gas support with the giftcard."
+                  label="Reserved gas"
+                  onChange={onSetReserveGas}
+                  value={checkoutSelection?.reserveGas ?? true}
+                />
                 <Separator />
                 <View style={styles.diagnostics}>
                   <Typography color="muted" type="body-xs" weight="semibold">Readiness</Typography>
@@ -401,13 +403,14 @@ function ValueButtonList({
 }
 
 function MintRouteCard({
-  encryptionActive,
+  giftcardMode,
   profile
 }: {
-  encryptionActive: boolean;
+  giftcardMode: CheckoutSelection['giftcardMode'];
   profile: RuntimeNetworkProfile;
 }) {
   const ChainLogo = profile.ua.networkName.startsWith('arbitrum') ? ArbitrumLogo : EthereumLogo;
+  const encryptionActive = giftcardMode === 'voucher';
 
   return (
     <Surface className="rounded-lg border border-border bg-surface px-4 shadow-none">
@@ -424,29 +427,27 @@ function MintRouteCard({
         </Chip>
       </View>
       <Separator />
-      <View style={styles.encryptionRow}>
-        <View style={styles.encryptionHeader}>
-          <FhenixLogo height={18} width={96} />
-          <Chip color={encryptionActive ? 'success' : 'default'} size="sm" variant="soft">
-            <Chip.Label>{encryptionActive ? 'Active' : 'Off'}</Chip.Label>
-          </Chip>
-        </View>
-        <View style={styles.encryptionCopy}>
-          <View style={styles.inlineTitle}>
-            {encryptionActive ? (
-              <LockKeyhole color="#e9680c" size={16} />
-            ) : (
-              <ShieldCheck color="#71717a" size={16} />
-            )}
-            <Typography type="body-sm" weight="semibold">
-              {encryptionActive ? 'Encrypted claim active' : 'Encryption not required'}
-            </Typography>
+      {encryptionActive ? (
+        <View style={styles.encryptionRow}>
+          <View style={styles.encryptionHeader}>
+            <FhenixLogo height={18} width={96} />
+            <Chip color="success" size="sm" variant="soft"><Chip.Label>Active</Chip.Label></Chip>
           </View>
-          <Typography color="muted" type="body-xs">
-            {encryptionActive ? 'CoFHE secures the voucher claim.' : 'Funded value stays on the NFT contract.'}
-          </Typography>
+          <View style={styles.inlineTitle}>
+            <LockKeyhole color="#e9680c" size={16} />
+            <Typography type="body-sm" weight="semibold">Encrypted voucher</Typography>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.routeRow}>
+          <CircleDollarSign color="#2775ca" size={22} />
+          <View style={styles.flexCopy}>
+            <Typography type="body-sm" weight="semibold">USDC-backed giftcard</Typography>
+            <Typography color="muted" type="body-xs">Fixed value</Typography>
+          </View>
+          <Chip color="success" size="sm" variant="soft"><Chip.Label>Funded</Chip.Label></Chip>
+        </View>
+      )}
     </Surface>
   );
 }
@@ -626,9 +627,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between'
-  },
-  encryptionCopy: {
-    gap: 3
   },
   iconWell: {
     alignItems: 'center',

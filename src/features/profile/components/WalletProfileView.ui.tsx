@@ -1,7 +1,6 @@
 import { useState, type ComponentType, type ReactNode } from 'react';
 import {
   Accordion,
-  Avatar,
   Button,
   Chip,
   Separator,
@@ -16,110 +15,119 @@ import {
   LogOut,
   Settings,
   ShieldCheck,
-  UserRoundCog,
-  WalletCards
+  UserRoundCog
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
 import SolanaLogo from '@assets/images/network/solana-sol-logo.svg';
+import { FixedHeaderScrollView } from '@/components/FixedHeaderScrollView.ui';
+import { PageHeader } from '@/components/PageHeader.ui';
+import { StablecoinPortfolioCard } from '@/features/checkout/components/StablecoinPortfolioCard.ui';
+import type {
+  NativeBalanceRow,
+  StablecoinPortfolio,
+  StablecoinSymbol
+} from '@/features/checkout/services/paymentBalances';
+import { ProfileAccountCard } from '@/features/profile/components/ProfileAccountCard.ui';
 import type { WalletProfileState } from '@/features/profile/hooks/useWalletProfile';
-import { getAccountAvatarLabel } from '@/features/profile/utils/accountDisplay';
 
 export type WalletProfileViewProps = {
   accountName: string;
+  balanceErrors: string[];
+  balanceStatus: 'idle' | 'loading' | 'ready' | 'error';
   environmentLabel: string;
   giftcardCount: number;
   giftcardValue: string;
   loginMethod?: string | null;
   networkLabel: string;
+  portfolio: StablecoinPortfolio;
+  nativeRows: NativeBalanceRow[];
+  showTestnetNative: boolean;
   profileState: WalletProfileState;
   stablecoinBalance: string;
+  onBack: () => void;
   onSettings: () => void;
   onLogout: () => void | Promise<void>;
+  onRefreshBalances: () => void | Promise<void>;
+  onTopUp: () => void | Promise<void>;
 };
 
 export function WalletProfileView({
   accountName,
+  balanceErrors,
+  balanceStatus,
   environmentLabel,
   giftcardCount,
   giftcardValue,
   loginMethod,
   networkLabel,
+  onBack,
   onLogout,
+  onRefreshBalances,
   onSettings,
+  onTopUp,
+  portfolio,
+  nativeRows,
   profileState,
-  stablecoinBalance
+  stablecoinBalance,
+  showTestnetNative
 }: WalletProfileViewProps) {
   const [walletOpen, setWalletOpen] = useState<string | undefined>('evm-wallet');
+  const [selectedStablecoin, setSelectedStablecoin] = useState<StablecoinSymbol>('USDC');
   const loginProvider = providerName(loginMethod);
 
   return (
-    <View style={styles.stack}>
-      <View style={styles.pageHeader}>
-        <View style={styles.headerCopy}>
-          <Typography.Heading type="h2">Profile</Typography.Heading>
-          <Typography color="muted">Account, wallets, and security.</Typography>
+    <FixedHeaderScrollView
+      contentContainerStyle={styles.stack}
+      header={<PageHeader
+        backLabel="Back to catalogue"
+        onBack={onBack}
+        right={(
+          <Button
+            accessibilityLabel="Open account settings"
+            className="h-11 w-11 rounded-lg"
+            isIconOnly
+            onPress={onSettings}
+            variant="secondary"
+          >
+            <Settings color="#3f3f46" size={20} />
+          </Button>
+        )}
+        subtitle="Account, wallets, and security"
+        title="Profile"
+      />}
+    >
+
+      <ProfileAccountCard
+        accountName={accountName}
+        environmentLabel={environmentLabel}
+        giftcardCount={giftcardCount}
+        giftcardValue={giftcardValue}
+        loginProvider={loginProvider}
+        networkLabel={networkLabel}
+        onTopUp={onTopUp}
+        stablecoinBalance={stablecoinBalance}
+      />
+
+      <View style={styles.sectionStack}>
+        <View style={styles.sectionHeading}>
+          <Typography.Heading type="h5">Network balances</Typography.Heading>
+          <Typography color="muted" type="body-xs">USD stablecoins across supported networks.</Typography>
         </View>
-        <Button
-          accessibilityLabel="Open account settings"
-          className="h-11 w-11 rounded-lg"
-          isIconOnly
-          onPress={onSettings}
-          variant="secondary"
-        >
-          <Settings color="#3f3f46" size={20} />
-        </Button>
+        <StablecoinPortfolioCard
+          defaultExpanded
+          errors={balanceErrors}
+          onRefresh={onRefreshBalances}
+          onSelect={setSelectedStablecoin}
+          onTopUp={onTopUp}
+          portfolio={portfolio}
+          nativeRows={nativeRows}
+          selected={selectedStablecoin}
+          showNativeSummary={showTestnetNative}
+          status={balanceStatus}
+        />
       </View>
-
-      <Surface className="rounded-lg border border-border bg-surface p-4 shadow-none">
-        <View style={styles.identityRow}>
-          <Avatar alt={`${accountName} profile`} color="default" size="lg" variant="soft">
-            <Avatar.Fallback>{getAccountAvatarLabel(accountName)}</Avatar.Fallback>
-          </Avatar>
-          <View style={styles.identityCopy}>
-            <Typography.Heading numberOfLines={1} type="h4">{accountName}</Typography.Heading>
-            <Typography color="muted" type="body-sm">Personal account</Typography>
-          </View>
-          {loginProvider ? (
-            <Chip color="accent" size="sm" variant="soft">
-              <Chip.Label>{loginProvider}</Chip.Label>
-            </Chip>
-          ) : null}
-        </View>
-        <Separator style={styles.identitySeparator} />
-        <View style={styles.profileMeta}>
-          <View style={styles.metaRow}>
-            <Typography color="muted" type="body-xs">Environment</Typography>
-            <Chip color="default" size="sm" variant="soft">
-              <Chip.Label>{environmentLabel}</Chip.Label>
-            </Chip>
-          </View>
-          <View style={styles.metaRow}>
-            <Typography color="muted" type="body-xs">Checkout route</Typography>
-            <Typography type="body-sm" weight="semibold">{networkLabel}</Typography>
-          </View>
-        </View>
-      </Surface>
-
-      <Surface className="rounded-lg border border-border bg-surface p-4 shadow-none">
-        <View style={styles.sectionLead}>
-          <View style={styles.iconWell}>
-            <WalletCards color="#e9680c" size={21} />
-          </View>
-          <View style={styles.sectionLeadCopy}>
-            <Typography.Heading type="h5">Portfolio</Typography.Heading>
-            <Typography color="muted" type="body-xs">Connected account overview</Typography>
-          </View>
-        </View>
-        <View style={styles.metrics}>
-          <Metric label="USD balance" value={stablecoinBalance} />
-          <Separator orientation="vertical" style={styles.metricSeparator} />
-          <Metric label="Giftcards" value={String(giftcardCount)} />
-          <Separator orientation="vertical" style={styles.metricSeparator} />
-          <Metric label="Card value" value={giftcardValue} />
-        </View>
-      </Surface>
 
       <View style={styles.sectionStack}>
         <View style={styles.sectionHeading}>
@@ -177,16 +185,7 @@ export function WalletProfileView({
       </Button>
 
       <Typography color="muted" style={styles.version} type="body-xs">Mogate mobile 0.1.0</Typography>
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Typography.Heading numberOfLines={1} type="h5">{value}</Typography.Heading>
-      <Typography color="muted" numberOfLines={1} type="body-xs">{label}</Typography>
-    </View>
+    </FixedHeaderScrollView>
   );
 }
 
@@ -315,56 +314,6 @@ const styles = StyleSheet.create({
   headerCopy: {
     flex: 1,
     gap: 2
-  },
-  identityRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12
-  },
-  identityCopy: {
-    flex: 1,
-    minWidth: 0
-  },
-  identitySeparator: {
-    marginVertical: 14
-  },
-  profileMeta: {
-    gap: 10
-  },
-  metaRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  },
-  sectionLead: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10
-  },
-  iconWell: {
-    alignItems: 'center',
-    backgroundColor: '#fff1e7',
-    borderRadius: 8,
-    height: 40,
-    justifyContent: 'center',
-    width: 40
-  },
-  sectionLeadCopy: {
-    flex: 1
-  },
-  metrics: {
-    alignItems: 'stretch',
-    flexDirection: 'row',
-    marginTop: 16
-  },
-  metric: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 2,
-    minWidth: 0
-  },
-  metricSeparator: {
-    height: 42
   },
   sectionStack: {
     gap: 10

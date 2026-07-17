@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { createPlannedSignerAdapter } from '@/@web3/providers/planned/createPlannedSignerAdapter';
 import { useWalletConnectionStore } from '@/@web3/stores/walletConnectionStore';
@@ -57,6 +57,11 @@ export function useUniversalWallet(options: UseUniversalWalletOptions = {}) {
       });
     }
   }, [adapter, selectedStack, setSnapshot]);
+
+  useEffect(() => {
+    if (!adapter?.autoConnect || snapshot.status !== 'idle') return;
+    void connect();
+  }, [adapter, connect, snapshot.status]);
 
   const refresh = useCallback(async () => {
     if (!adapter) return;

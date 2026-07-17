@@ -1,21 +1,21 @@
-export type MainTab = 'home' | 'search' | 'request' | 'inventory' | 'profile';
+export type MainTab = 'catalogue' | 'updates' | 'request' | 'leaderboard' | 'inventory';
 
-export type MainTabRouteName = 'index' | 'search' | 'request' | 'inventory' | 'profile';
+export type MainTabRouteName = 'index' | 'updates' | 'request' | 'leaderboard' | 'inventory';
 
 export const MAIN_TAB_PATHS = {
-  home: '/',
-  search: '/search',
+  catalogue: '/',
+  updates: '/updates',
   request: '/request',
-  inventory: '/inventory',
-  profile: '/profile'
+  leaderboard: '/leaderboard',
+  inventory: '/inventory'
 } as const satisfies Record<MainTab, string>;
 
 export const MAIN_TAB_ROUTES = {
-  index: 'home',
-  search: 'search',
+  index: 'catalogue',
+  updates: 'updates',
   request: 'request',
-  inventory: 'inventory',
-  profile: 'profile'
+  leaderboard: 'leaderboard',
+  inventory: 'inventory'
 } as const satisfies Record<MainTabRouteName, MainTab>;
 
 export function isMainTabRouteName(value: string): value is MainTabRouteName {

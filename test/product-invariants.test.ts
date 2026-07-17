@@ -53,7 +53,7 @@ describe('Particle UA EIP-7702 product invariants', () => {
     expect(checks.signer?.status).toBe('ready');
     expect(checks['signer-config']?.status).toBe('blocked');
     expect(checks.chain?.status).toBe('blocked');
-    expect(checks.gateway?.status).toBe('blocked');
+    expect(checks.gateway?.status).toBe('ready');
   });
 
   it('prepares checkout templates for the owner EOA, not a deposit account', () => {
@@ -61,7 +61,7 @@ describe('Particle UA EIP-7702 product invariants', () => {
     const parsed = parsePreparedCheckoutJson(getDirectCheckoutTemplate(owner), owner);
 
     expect(parsed.to).toBe(owner);
-    expect(parsed.gatewayVersion).toBe('v2');
+    expect(parsed.gatewayVersion).toBe('signed-v2');
     expect(() => assertCheckoutReceiverIsOwner(parsed, owner)).not.toThrow();
   });
 

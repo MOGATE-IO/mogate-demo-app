@@ -19,23 +19,11 @@ export function InventoryScreen({ context }: { context: AppScreenContext }) {
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <GiftcardInventoryView
-        inventory={context.inventory}
-        onBrowse={() => context.goToTab('search')}
-        profile={context.profile}
-      />
-    </ScrollView>
+    <GiftcardInventoryView
+      inventory={context.inventory}
+      onBrowse={() => context.goToTab('catalogue')}
+      onOpenDetails={(item) => context.goToGiftcardDetails(item.tokenId)}
+      profile={context.profile}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  content: {
-    paddingBottom: 96
-  }
-});
-import { ScrollView, StyleSheet } from 'react-native';

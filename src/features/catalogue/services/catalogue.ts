@@ -1,4 +1,5 @@
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
+import { fetchWithTimeout } from '@/utils/async';
 
 export type GiftcardMerchant = {
   id: string;
@@ -58,11 +59,11 @@ function extractAmounts(raw: any) {
 
 function defaultHeroColor(category: string): readonly [string, string, string] {
   const key = category.toLowerCase();
-  if (key.includes('travel')) return ['#fff8d8', '#e7f7ff', '#efe1ff'];
-  if (key.includes('food')) return ['#fff6dc', '#e7f9ed', '#dcefff'];
-  if (key.includes('digital')) return ['#f6f7ff', '#e4f5ff', '#eee7ff'];
-  if (key.includes('transport')) return ['#f7fbff', '#e9f5ff', '#dcecff'];
-  return ['#ffffff', '#e8f2ff', '#f4e4ff'];
+  if (key.includes('travel')) return ['#fff4dc', '#ffd1b8', '#e6ddff'];
+  if (key.includes('food')) return ['#fff1df', '#ffd5ca', '#e7f5ee'];
+  if (key.includes('digital')) return ['#fff0e5', '#ffcbb7', '#e5ddff'];
+  if (key.includes('transport')) return ['#fff4ea', '#ffd5bd', '#dcecff'];
+  return ['#fff5ed', '#ffd3c2', '#eadfff'];
 }
 
 function normalizeMerchant(raw: any, index: number): GiftcardMerchant {
@@ -140,7 +141,12 @@ export async function fetchGiftcardCatalogue(
     throw new Error('Catalogue API path is not configured.');
   }
 
-  const response = await fetch(buildCatalogueUrl(profile, query));
+  const response = await fetchWithTimeout(
+    buildCatalogueUrl(profile, query),
+    undefined,
+    15_000,
+    'Giftcard catalogue request timed out. Check the local API and try again.'
+  );
   if (!response.ok) {
     throw new Error(`Catalogue endpoint failed ${response.status}: ${await response.text()}`);
   }

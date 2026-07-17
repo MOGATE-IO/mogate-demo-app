@@ -53,7 +53,7 @@ export function MintCheckoutScreen({ context }: { context: AppScreenContext }) {
       canMint={canMint}
       checkoutSelection={context.checkoutSelection}
       mint={mint}
-      onBack={() => context.goToTab('search')}
+      onBack={() => context.goToTab('catalogue')}
       onCheckoutComplete={() => context.goToTab('inventory')}
       onRefreshBalances={paymentBalances.refresh}
       onSelectAmount={form.selectAmount}
@@ -61,9 +61,11 @@ export function MintCheckoutScreen({ context }: { context: AppScreenContext }) {
       onSetAutoMint={form.setAutoMint}
       onSetAutoUnwrap={form.setAutoUnwrap}
       onSetCouponCode={form.setCouponCode}
+      onSetGiftcardMode={form.setGiftcardMode}
       onSetReceiverAddress={form.setReceiverAddress}
       onSetReceiverContact={form.setReceiverContact}
       onSetReceiverType={form.setReceiverType}
+      onSetReserveGas={form.setReserveGas}
       onToggleAdvanced={form.toggleAdvanced}
       onToggleRegion={form.toggleRegion}
       onTopUp={context.topUp}

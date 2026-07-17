@@ -1,5 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
+import MogateLogo from '@assets/mogate-text-white.svg';
 import { Button } from '@/components/Button';
 import type { WalletStatus } from '@/@web3/types/wallet';
 
@@ -53,10 +55,15 @@ export function OnboardingPanel({
       <View style={styles.gallery}>
         <View style={styles.backCard} />
         <View style={styles.middleCard} />
-        <View style={styles.artCard}>
-          <Text style={styles.artText}>MG</Text>
+        <LinearGradient
+          colors={['#ffb56f', '#ef754b', '#c95f82']}
+          end={{ x: 1, y: 1 }}
+          start={{ x: 0, y: 0 }}
+          style={styles.artCard}
+        >
+          <MogateLogo height={34} width={126} />
           <Text style={styles.artCaption}>Giftcard</Text>
-        </View>
+        </LinearGradient>
       </View>
 
       <View style={styles.copyBlock}>
@@ -104,7 +111,7 @@ const styles = StyleSheet.create({
     height: 3
   },
   progressActive: {
-    backgroundColor: '#171512'
+    backgroundColor: '#e9680c'
   },
   gallery: {
     alignItems: 'center',
@@ -129,26 +136,19 @@ const styles = StyleSheet.create({
   },
   artCard: {
     alignItems: 'center',
-    backgroundColor: '#171512',
     borderRadius: 24,
     height: 228,
     justifyContent: 'center',
-    shadowColor: '#171512',
+    shadowColor: '#8f3f2f',
     shadowOpacity: 0.18,
     shadowRadius: 18,
     width: 164
   },
-  artText: {
-    color: '#ffffff',
-    fontSize: 56,
-    fontWeight: '900',
-    letterSpacing: 0
-  },
   artCaption: {
-    color: '#d6c5ad',
+    color: '#ffffff',
     fontSize: 13,
     fontWeight: '800',
-    marginTop: 8
+    marginTop: 12
   },
   copyBlock: {
     gap: 10

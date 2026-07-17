@@ -1,67 +1,54 @@
-# UA Cross-Chain Giftcard Mint
+# Funded Giftcard Execution Boundary
 
-## Current v0
+## Active Testnet Route
 
-Particle UA executes the Arbitrum gateway call from the embedded EOA in EIP-7702 in-place mode:
-
-```solidity
-unsafeCheckout(checkout, paymentToken, amount)
-```
-
-The mobile app builds the same checkout tuple as the web app:
-
-```ts
-{
-  orderId,
-  collection,
-  to,
-  uri,
-  encKey: { ctHash, securityZone, utype, signature },
-  cipherRef
-}
-```
-
-## Payment Calls
-
-Native payment:
+The mobile app prepares a signed funded checkout through OTA and submits it to the UUPS proxy on
+Ethereum Sepolia:
 
 ```text
-UA -> AuthorityMintGateway.unsafeCheckout{value: amount}
+Collection: 0x557ceE3F7B829169251d6eAA9FCC3211C1008E0D
+Gateway:    0x5915cBB93c96C5d3D0eCBa39dD396ef959D8Af13
+Version:    signed-v2
 ```
 
-ERC20 payment:
+The default product is a fixed funded card with direct native gas reserve enabled. A 50 USDC card
+and 1 USDC service fee produces two separate economic amounts: 50 USDC is transferred into the
+collection as token backing, while 1 USDC remains in the gateway proxy as withdrawable fee
+surplus.
 
 ```text
-UA -> paymentToken.approve(AuthorityMintGateway, amount)
-UA -> AuthorityMintGateway.unsafeCheckout(checkout, paymentToken, amount)
+Mobile -> OTA /giftcard/checkout/create
+OTA -> signs exact checkout, fee, funding, reserve, policy, nonce, and deadline
+Mobile -> USDC.approve(collection, 50 USDC)
+Mobile -> USDC.approve(gateway, 1 USDC)
+Mobile -> gateway.checkout(...)
+Gateway -> collection.mint(...)
+Mobile -> OTA /api/checkouts/reconcile
 ```
 
-## Mogate Funded Gateway v2
+Native value and direct reserve are supplied with the checkout transaction as `msg.value`. The
+reserve is stored by token ID in the collection; it does not pay the mint transaction itself.
 
-Funded giftcards use a new ERC721 collection, not ERC721MG. There is no encrypted giftcode payload. The collection owns the funded value and native reserved gas by tokenId.
+## Value Policy
 
-ERC20-funded mint:
+- `fixed`: default; value assets cannot change after mint, but native gas reserve may be added.
+- `top_up_existing`: anyone may add more of an asset accepted at mint.
+- `holder_managed`: anyone may top up accepted assets; only the current holder may introduce a
+  new value asset.
 
-```text
-UA -> paymentToken.approve(v2Gateway, checkoutPaymentAmount)
-UA -> valueToken.approve(fundedGiftcardCollection, fundedGiftcardAmount)
-UA -> MogateUAGiftcardMintGatewayV2.checkoutFundedV2(checkout, payment, funding)
-Gateway -> fundedGiftcardCollection.mintFunded(...)
-```
+OTA persists the high-level giftcard type, stable/volatile/mixed funded category, value policy,
+fixed-state flag, and multi-token flag in prepared data and metadata.
 
-Native-funded mint:
+## Balance UI
 
-```text
-UA -> MogateUAGiftcardMintGatewayV2.checkoutFundedV2{value: nativePayment + nativeGiftcardValue + reservedGas}
-Gateway -> fundedGiftcardCollection.mintFunded{value: nativeGiftcardValue + reservedGas}
-```
+The profile renders a single USD total with USDC and USDT tabs. Mainnet includes canonical
+Ethereum/Base/Arbitrum and Solana USDC/USDT routes plus native ETH/SOL reads. Ethereum Sepolia
+uses the OTA-configured Mogate Test USDC at `0x16369CD4B9533795dCdc0D67DB3E4c621ef97D68` and does
+not invent a Solana devnet USDT mint. Testnet-only
+native totals appear below the top-up controls and are hidden in mainnet mode.
 
-## Delegation Policy
+## Particle UA Later
 
-UA in EIP-7702 mode delegates the owner EOA to Particle's UA execution contract when a UA transaction needs it. The owner EOA remains the receiver/executor. Commerce Code later delegates the same EOA to Mogate7702 when that flow needs it.
-
-No default `address(0)` clear step is included. Clearing costs gas and is only hygiene if Mogate explicitly wants blank EOA state between flows.
-
-## Marketplace Extension
-
-The same UA transaction builder can call marketplace buy functions on Arbitrum/Base. Payment can be sourced from supported primary assets across chains, but NFT ownership still settles on the NFT's native chain. Solana NFT marketplaces require a separate Solana-program transaction path if the UA SDK supports the needed Solana instructions.
+Particle UA is a future transaction transport, not a Solidity dependency. It can eventually
+submit the same `approve` and `checkout` calls after cross-chain balance preparation. The gateway
+still validates OTA's EIP-712 signature and the NFT still settles on the target EVM chain.

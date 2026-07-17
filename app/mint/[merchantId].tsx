@@ -38,7 +38,7 @@ export default function MintRoute() {
         actionLabel={routeState.status === 'loading' ? undefined : 'Back to search'}
         body={routeState.message ?? 'Preparing checkout.'}
         loading={routeState.status === 'loading'}
-        onAction={routeState.status === 'loading' ? undefined : () => context.goToTab('search')}
+        onAction={routeState.status === 'loading' ? undefined : () => context.goToTab('catalogue')}
         title={routeState.status === 'loading' ? 'Preparing checkout' : 'Giftcard unavailable'}
       />
     </AppRouteFrame>
