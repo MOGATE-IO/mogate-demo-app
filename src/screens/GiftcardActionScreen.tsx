@@ -39,10 +39,15 @@ export function GiftcardActionScreen({
       onOpenExplorer={() => Linking.openURL(explorerUrl)}
       onRecipientChange={state.setRecipient}
       onSend={state.send}
+      onUnwrap={state.unwrap}
+      onWithdrawAll={state.withdrawAll}
       paymentCode={state.paymentCode}
+      paymentCodeConfigured={state.paymentCodeConfigured}
       paymentCodeExpiry={state.paymentCodeExpiry}
       recipient={state.recipient}
       sending={state.sending}
+      unwrapping={state.unwrapping}
+      withdrawing={state.withdrawing}
     />
   );
 }

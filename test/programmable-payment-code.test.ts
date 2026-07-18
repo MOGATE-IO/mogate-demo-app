@@ -5,14 +5,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { getNetworkProfile } from '../src/config/networkProfiles';
 import type { HexString, WalletAdapter } from '../src/@web3/types/wallet';
 import type { GiftcardInventoryItem } from '../src/features/inventory/services/giftcardInventory';
-import { generateProgrammablePaymentCode } from '../src/features/inventory/services/programmablePaymentCode';
+import {
+  generateProgrammablePaymentCode,
+  hasProgrammablePaymentCodePreset
+} from '../src/features/inventory/services/programmablePaymentCode';
 
 const profile = getNetworkProfile('testnet');
 
-function inventoryItem(): GiftcardInventoryItem {
+function inventoryItem(activeProfile = profile): GiftcardInventoryItem {
   return {
-    id: `${profile.gateway.legacyCollection.toLowerCase()}:59`,
-    collection: profile.gateway.legacyCollection as HexString,
+    id: `${activeProfile.gateway.legacyCollection.toLowerCase()}:59`,
+    collection: activeProfile.gateway.legacyCollection as HexString,
     collectionName: 'Mogate Giftcard',
     tokenId: '59',
     title: 'Mogate Giftcard',
@@ -24,7 +27,7 @@ function inventoryItem(): GiftcardInventoryItem {
     imageUrl: null,
     metadataUri: 'https://example.com/59.json',
     externalUrl: null,
-    networkLabel: profile.ua.chainLabel,
+    networkLabel: activeProfile.ua.chainLabel,
     isUnwrapped: false,
     isEncrypted: true,
     encryptionType: 'fhenix',
@@ -88,6 +91,12 @@ function decodeEnvelope(code: string) {
 }
 
 describe('programmable payment code', () => {
+  it('reports whether Commerce Code contracts are configured for a chain', () => {
+    expect(hasProgrammablePaymentCodePreset(11155111)).toBe(true);
+    expect(hasProgrammablePaymentCodePreset(421614)).toBe(true);
+    expect(hasProgrammablePaymentCodePreset(42161)).toBe(true);
+  });
+
   it('generates a direct signature-only code without invoking UA7702', async () => {
     const signer = Wallet.createRandom();
     const wallet = signerAdapter(signer);
@@ -106,6 +115,7 @@ describe('programmable payment code', () => {
     expect(envelope.generationMode).toBe('signature-only');
     expect(envelope.intent.holder).toBe(signer.address);
     expect(envelope.intent.tokenId).toBe('59');
+    expect(envelope.intent.visibilityPaymentCode).toBe(0);
     expect(envelope.authorization7702).toBeUndefined();
     expect(wallet.signTypedData).toHaveBeenCalledOnce();
     expect(wallet.sign7702Authorization).not.toHaveBeenCalled();
@@ -131,5 +141,36 @@ describe('programmable payment code', () => {
     });
     expect(wallet.sign7702Authorization).toHaveBeenCalledOnce();
     expect(wallet.getProvider).toHaveBeenCalledOnce();
+  });
+
+  it('uses the gateway-bound Arbitrum One deployment for a mainnet Commerce Code', async () => {
+    const mainnetProfile = getNetworkProfile('mainnet');
+    const signer = Wallet.createRandom();
+    const wallet = signerAdapter(signer);
+    const item = inventoryItem(mainnetProfile);
+    item.collection = '0x24E050f703AFC2fC0C692B343906f4995754b5C9';
+    item.id = `${item.collection.toLowerCase()}:1`;
+    item.tokenId = '1';
+    item.isEncrypted = false;
+    item.isFunded = true;
+
+    const result = await generateProgrammablePaymentCode({
+      item,
+      ownerAddress: signer.address,
+      profile: mainnetProfile,
+      ua7702: true,
+      wallet: wallet.adapter
+    });
+    const envelope = decodeEnvelope(result.code);
+
+    expect(result.code.startsWith('arb1:MGPC1:')).toBe(true);
+    expect(envelope.paymentCodeGateway).toBe('0xeB7d9D02a6E47a63Fe42D0f29AdBfb0F77fEDC4E');
+    expect(envelope.intent.chainId).toBe('42161');
+    expect(envelope.intent.visibilityPaymentCode).toBe(0);
+    expect(envelope.authorization7702).toMatchObject({
+      address: '0xf1f77D2F6CcC18068F824d6863d815921c08a5C0',
+      chainId: 42161,
+      nonce: '3'
+    });
   });
 });

@@ -6,7 +6,7 @@ import {
   MOGATE_UA_FUNDED_GATEWAY_ABI,
   ZERO_ADDRESS
 } from '../src/config/contracts';
-import { getDefaultNetworkProfile } from '../src/config/networkProfiles';
+import { getNetworkProfile } from '../src/config/networkProfiles';
 import {
   buildGiftcardMintCalls,
   parsePreparedCheckoutJson
@@ -18,6 +18,7 @@ const owner = '0x3333333333333333333333333333333333333333';
 const usdc = '0x16369CD4B9533795dCdc0D67DB3E4c621ef97D68';
 const dai = '0x5555555555555555555555555555555555555555';
 const signature = `0x${'11'.repeat(65)}`;
+const testnetProfile = getNetworkProfile('testnet');
 
 function response() {
   return {
@@ -77,7 +78,7 @@ function response() {
 
 describe('signed multi-asset funded checkout', () => {
   it('parses backend EIP-712 terms and builds all atomic calls', () => {
-    const profile = getDefaultNetworkProfile();
+    const profile = testnetProfile;
     const checkout = parsePreparedCheckoutJson(
       JSON.stringify(response()),
       owner,
@@ -138,9 +139,9 @@ describe('signed multi-asset funded checkout', () => {
     const checkout = parsePreparedCheckoutJson(
       JSON.stringify(payload),
       owner,
-      getDefaultNetworkProfile()
+      testnetProfile
     );
 
-    expect(() => buildGiftcardMintCalls(checkout)).toThrow(/required_native_value/);
+    expect(() => buildGiftcardMintCalls(checkout, testnetProfile)).toThrow(/required_native_value/);
   });
 });

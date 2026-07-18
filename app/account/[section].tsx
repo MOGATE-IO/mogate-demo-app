@@ -1,4 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import type { AppNetworkMode } from '@/config/networkProfiles';
 
 import { AppRouteFrame } from '@/components/AppRouteFrame.ui';
 import { RouteState } from '@/components/RouteState.ui';
@@ -29,9 +30,20 @@ export default function AccountSectionRoute() {
     );
   }
 
+  async function changeNetwork(mode: AppNetworkMode) {
+    if (mode === context.networkMode) return;
+    await context.wallet.disconnect();
+    context.setNetworkMode(mode);
+  }
+
   return (
     <AppRouteFrame scroll={false}>
-      <AccountSectionScreen onBack={() => router.back()} section={sectionValue} />
+      <AccountSectionScreen
+        networkMode={context.networkMode}
+        onBack={() => router.back()}
+        onNetworkModeChange={changeNetwork}
+        section={sectionValue}
+      />
     </AppRouteFrame>
   );
 }

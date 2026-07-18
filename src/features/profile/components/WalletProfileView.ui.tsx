@@ -11,7 +11,6 @@ import {
   BookOpenText,
   ChevronRight,
   CircleHelp,
-  Copy,
   LogOut,
   Settings,
   ShieldCheck,
@@ -21,6 +20,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
 import SolanaLogo from '@assets/images/network/solana-sol-logo.svg';
+import { CopyAddressButton } from '@/components/CopyAddressButton';
 import { FixedHeaderScrollView } from '@/components/FixedHeaderScrollView.ui';
 import { PageHeader } from '@/components/PageHeader.ui';
 import { StablecoinPortfolioCard } from '@/features/checkout/components/StablecoinPortfolioCard.ui';
@@ -171,6 +171,9 @@ export function WalletProfileView({
             </Typography>
           </Surface>
         ) : null}
+        {profileState.copyError ? (
+          <Typography className="text-danger" type="body-xs">{profileState.copyError}</Typography>
+        ) : null}
       </View>
 
       <ProfileMenu onSettings={onSettings} />
@@ -228,16 +231,12 @@ function WalletAccordionItem({
             <Typography selectable style={styles.address} type="body-xs">
               {address || 'No wallet address available'}
             </Typography>
-            <Button
+            <CopyAddressButton
               accessibilityLabel={`Copy ${label} address`}
-              className="h-10 w-10 rounded-lg"
-              isDisabled={!address}
-              isIconOnly
-              onPress={onCopy}
-              variant="secondary"
-            >
-              <Copy color={copied ? '#23845b' : '#52525b'} size={17} />
-            </Button>
+              copied={copied}
+              disabled={!address}
+              onCopy={onCopy}
+            />
           </View>
           {copied ? <Typography style={styles.copiedText} type="body-xs">Address copied</Typography> : null}
         </View>

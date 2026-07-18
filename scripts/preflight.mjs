@@ -11,10 +11,11 @@ const API_PATHS = {
   transakSession: '/api/transak/session'
 };
 const ACTIVE_PROFILE = {
-  mode: 'testnet',
-  targetChainId: 11155111,
-  allowUnlistedTestnet: true,
-  expectedPrimaryAsset: '',
+  mode: 'mainnet',
+  gatewayExecutionMode: 'ua7702',
+  targetChainId: 42161,
+  allowUnlistedTestnet: false,
+  allowedPrimaryAssets: ['USDC', 'USDT'],
   particle: {
     projectId: '',
     clientKey: '',
@@ -22,8 +23,8 @@ const ACTIVE_PROFILE = {
   },
   gateway: {
     version: 'signed-v2',
-    signedAddress: '0x5915cBB93c96C5d3D0eCBa39dD396ef959D8Af13',
-    fundedCollection: '0x557ceE3F7B829169251d6eAA9FCC3211C1008E0D'
+    signedAddress: '0x6dB964c89452761ad643dDa34090CF9e72D0f53D',
+    fundedCollection: '0x24E050f703AFC2fC0C692B343906f4995754b5C9'
   }
 };
 const PRODUCT_SIGNERS = new Set(['privy']);
@@ -174,12 +175,20 @@ function buildChecks(env) {
 
   return [
     check(
+      'execution-mode',
+      'Gateway execution',
+      ACTIVE_PROFILE.mode !== 'mainnet' || ACTIVE_PROFILE.gatewayExecutionMode === 'ua7702',
+      ACTIVE_PROFILE.gatewayExecutionMode === 'ua7702'
+        ? 'Mainnet funded checkout is locked to Particle UA EIP-7702 execution.'
+        : 'Mainnet funded checkout must not use direct execution.'
+    ),
+    check(
       'particle',
       'Particle project',
       particleReady,
       particleReady
         ? 'Particle project ID, client key, and app ID are configured.'
-        : 'Configure EXPO_PUBLIC_PARTICLE_PROJECT_ID, EXPO_PUBLIC_PARTICLE_CLIENT_KEY, and EXPO_PUBLIC_PARTICLE_APP_ID when UA minting resumes.'
+        : 'Configure EXPO_PUBLIC_PARTICLE_PROJECT_ID, EXPO_PUBLIC_PARTICLE_CLIENT_KEY, and EXPO_PUBLIC_PARTICLE_APP_ID before Mainnet checkout.'
     ),
     check('signer', 'EIP-7702 signer', signerReady, signerDetail),
     check('signer-project', 'Signer project', signerProjectReady, signerProjectDetail),
@@ -191,10 +200,14 @@ function buildChecks(env) {
         ? `Chain ${targetChainId} is publicly listed by Particle UA.`
         : `Particle UA SDK 2.x does not support chain ${targetChainId}. Keep this testnet profile in direct mode.`
     ),
-    checkPrimaryAsset(ACTIVE_PROFILE.expectedPrimaryAsset, targetChainId, allowUnlistedTestnet),
+    ...ACTIVE_PROFILE.allowedPrimaryAssets.map((asset) => ({
+      ...checkPrimaryAsset(asset, targetChainId, allowUnlistedTestnet),
+      id: `primary-asset-${asset.toLowerCase()}`,
+      label: `${asset} Primary Asset`
+    })),
     check(
       'gateway',
-      'Direct funded gateway',
+      'UA funded gateway',
       fundedGatewayReady,
       fundedGatewayReady
         ? `Gateway mode ${gatewayVersion} has a configured proxy and collection.`

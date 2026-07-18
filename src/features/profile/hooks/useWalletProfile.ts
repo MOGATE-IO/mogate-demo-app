@@ -24,6 +24,7 @@ export function useWalletProfile(input: {
   uaBalanceDisplay: string;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<AccordionState>(initialAccordionState);
   const ownerAddress = input.ownerAddress || '';
   const solanaAddress = input.linkedSolanaAddress || input.solanaUaAddress || '';
@@ -39,9 +40,16 @@ export function useWalletProfile(input: {
 
   async function copyAddress(label: string, address?: string | null) {
     if (!address) return;
-    await Clipboard.setStringAsync(address);
-    setCopied(label);
-    setTimeout(() => setCopied(null), 1400);
+    setCopyError(null);
+
+    try {
+      const copiedToClipboard = await Clipboard.setStringAsync(address);
+      if (!copiedToClipboard) throw new Error('Clipboard rejected the address.');
+      setCopied(label);
+      setTimeout(() => setCopied(null), 1400);
+    } catch (_error) {
+      setCopyError('Could not copy the address. Try selecting the address text instead.');
+    }
   }
 
   function toggleNetwork(network: PortfolioNetworkKey) {
@@ -53,6 +61,7 @@ export function useWalletProfile(input: {
 
   return {
     copied,
+    copyError,
     expanded,
     ownerAddress,
     portfolio,

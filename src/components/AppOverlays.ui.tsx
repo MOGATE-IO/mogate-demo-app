@@ -9,6 +9,7 @@ export function AppOverlays() {
   return (
     <TopUpSheet
       copied={topUpSheet.copied}
+      copyError={topUpSheet.copyError}
       evmAddress={wallet.snapshot.ownerAddress || wallet.snapshot.address}
       onClose={topUpSheet.close}
       onCopyAddress={topUpSheet.copyAddress}

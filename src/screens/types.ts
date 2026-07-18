@@ -33,7 +33,7 @@ export type CheckoutSelection = {
 };
 
 export type CheckoutSelectionInput = Pick<CheckoutSelection, 'merchant' | 'amount'> &
-  Partial<Omit<CheckoutSelection, 'merchant' | 'amount'>>;
+  Partial<Omit<CheckoutSelection, 'merchant' | 'amount' | 'paymentMode'>>;
 
 export type AppScreenContext = {
   profile: RuntimeNetworkProfile;

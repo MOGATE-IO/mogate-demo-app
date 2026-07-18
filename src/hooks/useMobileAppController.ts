@@ -57,7 +57,6 @@ export function useMobileAppController({
     adapter: wallet.adapter,
     profile,
     receiverAddress: checkoutSelection?.receiverAddress,
-    paymentMode: checkoutSelection?.paymentMode ?? 'direct',
     intent: checkoutSelection
       ? {
           merchantId: checkoutSelection.merchant.backendBrandId,
@@ -87,7 +86,7 @@ export function useMobileAppController({
   const inventory = useGiftcardInventory({
     ownerAddress: wallet.snapshot.ownerAddress || wallet.snapshot.address,
     profile,
-    refreshKey: mint.mintResult?.transactionHash ?? mint.mintResult?.tokenId,
+    refreshKey: mint.lastSuccessfulMintResult?.transactionHash ?? mint.lastSuccessfulMintResult?.tokenId,
     wallet: wallet.adapter
   });
 
@@ -156,7 +155,7 @@ export function useMobileAppController({
       receiverAddress: selection.receiverAddress ?? ownerAddress,
       receiverContact: selection.receiverContact ?? '',
       network: selection.network ?? network,
-      paymentMode: selection.paymentMode ?? 'direct',
+      paymentMode: profile.gatewayExecutionMode,
       giftcardMode: selection.giftcardMode ?? 'funded',
       mintMode: selection.mintMode ?? 'public',
       autoMint: selection.autoMint ?? true,
@@ -167,7 +166,7 @@ export function useMobileAppController({
 
     setCheckoutSelection(next);
     return next;
-  }, [profile.ua.networkName, wallet.snapshot.address, wallet.snapshot.ownerAddress]);
+  }, [profile.gatewayExecutionMode, profile.ua.networkName, wallet.snapshot.address, wallet.snapshot.ownerAddress]);
 
   const goToCheckout = useCallback((selection: CheckoutSelectionInput) => {
     const next = prepareCheckout(selection);
@@ -182,8 +181,10 @@ export function useMobileAppController({
   }, [prepareCheckout, router]);
 
   const updateCheckoutSelection = useCallback((selection: Partial<CheckoutSelection>) => {
-    setCheckoutSelection((current) => current ? { ...current, ...selection } : current);
-  }, []);
+    setCheckoutSelection((current) => current
+      ? { ...current, ...selection, paymentMode: profile.gatewayExecutionMode }
+      : current);
+  }, [profile.gatewayExecutionMode]);
 
   const goToTab = useCallback((tab: MainTab) => {
     router.replace(MAIN_TAB_PATHS[tab]);

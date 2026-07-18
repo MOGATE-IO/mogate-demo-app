@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { isPublicParticleUaChain } from '@/config/contracts';
-import { getDefaultNetworkProfile, type RuntimeNetworkProfile } from '@/config/networkProfiles';
+import {
+  getDefaultNetworkProfile,
+  hasParticleProjectConfig,
+  type RuntimeNetworkProfile
+} from '@/config/networkProfiles';
 import { getSignerProviderInfo, isProductEip7702Signer } from '@/@web3/config/signerProviders';
 import type { WalletAdapter, WalletSnapshot } from '@/@web3/types/wallet';
 import { withTimeout } from '@/utils/async';
@@ -45,6 +49,9 @@ export type CheckoutExecutionStep =
   | 'idle'
   | 'preparing'
   | 'confirming-payment'
+  | 'routing'
+  | 'authorizing'
+  | 'submitting'
   | 'minting'
   | 'reconciling'
   | 'complete'
@@ -63,10 +70,9 @@ export function useUniversalAccountMint(input: {
   profile?: RuntimeNetworkProfile;
   intent?: GiftcardCheckoutIntent | null;
   receiverAddress?: string | null;
-  paymentMode?: 'direct' | 'ua7702';
 }) {
   const profile = input.profile ?? getDefaultNetworkProfile();
-  const paymentMode = input.paymentMode ?? 'direct';
+  const paymentMode = profile.gatewayExecutionMode;
   const receiver = input.receiverAddress?.trim() || input.wallet.ownerAddress || input.wallet.address || '';
   const [stage, setStage] = useState<MintStage>('idle');
   const [executionStep, setExecutionStep] = useState<CheckoutExecutionStep>('idle');
@@ -74,6 +80,7 @@ export function useUniversalAccountMint(input: {
   const [preparedCheckout, setPreparedCheckout] = useState<PreparedUnsafeCheckout | null>(null);
   const [uaProbe, setUaProbe] = useState<UaProbeResult | null>(null);
   const [mintResult, setMintResult] = useState<GiftcardPaymentResult | null>(null);
+  const [lastSuccessfulMintResult, setLastSuccessfulMintResult] = useState<GiftcardPaymentResult | null>(null);
   const [reconciliation, setReconciliation] = useState<CheckoutReconciliationStatus>({
     status: 'idle',
     detail: 'Mint has not been reconciled yet.'
@@ -85,6 +92,7 @@ export function useUniversalAccountMint(input: {
   useEffect(() => {
     setCheckoutJson(getDirectCheckoutTemplate(receiver, profile));
     setPreparedCheckout(null);
+    setUaProbe(null);
     setMintResult(null);
     setReconciliation({
       status: 'idle',
@@ -122,7 +130,6 @@ export function useUniversalAccountMint(input: {
   const loadCheckoutFromBackend = useCallback(async () => {
     resetError();
     setStage('loading-checkout');
-    setExecutionStep('preparing');
     try {
       if (!receiver) throw new Error('Connect a wallet before preparing checkout.');
       const checkout = await withTimeout(
@@ -137,18 +144,56 @@ export function useUniversalAccountMint(input: {
         })
       );
       setStage('checkout-ready');
-      setExecutionStep('idle');
     } catch (error) {
       setLastError(toErrorMessage(error));
       setStage('error');
-      setExecutionStep('error');
     }
   }, [input.intent, profile, receiver, resetError]);
+
+  const reconcileSubmittedMint = useCallback(async (
+    checkout: PreparedUnsafeCheckout,
+    result: GiftcardPaymentResult,
+    ownerAddress: string
+  ) => {
+    setExecutionStep('reconciling');
+    const reconciliationResult = await withTimeout(
+      reconcileUaMint({
+        ownerAddress,
+        checkout,
+        mintResult: result,
+        profile
+      }),
+      30_000,
+      'OTA mint verification did not finish within 30 seconds.'
+    );
+    setReconciliation(reconciliationResult);
+    if (reconciliationResult.status !== 'recorded') {
+      throw new Error(reconciliationResult.detail);
+    }
+
+    const confirmedResult: GiftcardPaymentResult = {
+      ...result,
+      transactionHash: reconciliationResult.transactionHash,
+      tokenId: reconciliationResult.tokenId
+    };
+    setMintResult(confirmedResult);
+    setLastSuccessfulMintResult(confirmedResult);
+    setStage('sent');
+    setExecutionStep('complete');
+  }, [profile]);
 
   const probeUa = useCallback(async () => {
     resetError();
     setStage('probing-ua');
     try {
+      if (paymentMode !== 'ua7702') {
+        throw new Error('Universal Account probing is disabled for the direct Testnet profile.');
+      }
+      if (!hasParticleProjectConfig(profile)) {
+        throw new Error(
+          'Particle UA is required for Mainnet checkout. Configure EXPO_PUBLIC_PARTICLE_PROJECT_ID, EXPO_PUBLIC_PARTICLE_CLIENT_KEY, and EXPO_PUBLIC_PARTICLE_APP_ID.'
+        );
+      }
       const ownerAddress = input.wallet.ownerAddress || input.wallet.address;
       if (!ownerAddress) throw new Error('Connect a wallet before probing Universal Accounts.');
       const probe = await probeUniversalAccount(ownerAddress, profile);
@@ -158,16 +203,29 @@ export function useUniversalAccountMint(input: {
       setLastError(toErrorMessage(error));
       setStage('error');
     }
-  }, [input.wallet.address, input.wallet.ownerAddress, profile, resetError]);
+  }, [input.wallet.address, input.wallet.ownerAddress, paymentMode, profile, resetError]);
 
   const executeMint = useCallback(async () => {
     resetError();
+    setMintResult(null);
+    setReconciliation({
+      status: 'idle',
+      detail: 'Mint has not been reconciled yet.'
+    });
     setStage('building');
-    setExecutionStep('confirming-payment');
+    setExecutionStep(paymentMode === 'ua7702' ? 'routing' : 'confirming-payment');
     try {
       const ownerAddress = input.wallet.ownerAddress || input.wallet.address;
       if (!ownerAddress) throw new Error('Connect a wallet before paying.');
       if (!input.adapter) throw new Error('Wallet adapter is not mounted.');
+      if (paymentMode === 'ua7702' && !hasParticleProjectConfig(profile)) {
+        throw new Error(
+          'Particle UA is required for Mainnet checkout. Configure EXPO_PUBLIC_PARTICLE_PROJECT_ID, EXPO_PUBLIC_PARTICLE_CLIENT_KEY, and EXPO_PUBLIC_PARTICLE_APP_ID.'
+        );
+      }
+      if (paymentMode === 'ua7702' && !uaProbe) {
+        throw new Error('Particle Universal Account and unified stablecoin balance are not ready. Refresh the route before paying.');
+      }
       if (paymentMode === 'ua7702' && !isProductEip7702Signer(input.wallet.stack)) {
         const provider = getSignerProviderInfo(input.wallet.stack);
         throw new Error(
@@ -203,28 +261,7 @@ export function useUniversalAccountMint(input: {
       });
       setPreparedCheckout(checkout);
       setMintResult(result);
-      setExecutionStep('reconciling');
-      let reconciliationResult: CheckoutReconciliationStatus;
-      try {
-        reconciliationResult = await withTimeout(
-          reconcileUaMint({
-            ownerAddress,
-            checkout,
-            mintResult: result,
-            profile
-          }),
-          20_000,
-          'OTA reconciliation did not finish within 20 seconds.'
-        );
-      } catch (error) {
-        reconciliationResult = {
-          status: 'error',
-          detail: `The mint is confirmed and Inventory is refreshing, but OTA reconciliation is pending: ${toErrorMessage(error)}`
-        };
-      }
-      setReconciliation(reconciliationResult);
-      setStage('sent');
-      setExecutionStep('complete');
+      await reconcileSubmittedMint(checkout, result, ownerAddress);
     } catch (error) {
       setLastError(toErrorMessage(error));
       setStage('error');
@@ -240,14 +277,44 @@ export function useUniversalAccountMint(input: {
     paymentMode,
     profile,
     receiver,
-    resetError
+    reconcileSubmittedMint,
+    resetError,
+    uaProbe
   ]);
+
+  const retryReconciliation = useCallback(async () => {
+    resetError();
+    try {
+      const ownerAddress = input.wallet.ownerAddress || input.wallet.address;
+      if (!ownerAddress || !preparedCheckout || !mintResult) {
+        throw new Error('There is no submitted mint to verify. Prepare the checkout again.');
+      }
+      await reconcileSubmittedMint(preparedCheckout, mintResult, ownerAddress);
+    } catch (error) {
+      setLastError(toErrorMessage(error));
+      setStage('error');
+      setExecutionStep('error');
+    }
+  }, [input.wallet.address, input.wallet.ownerAddress, mintResult, preparedCheckout, reconcileSubmittedMint, resetError]);
 
   const dismissExecutionError = useCallback(() => {
     setLastError(null);
     setExecutionStep('idle');
     setStage(preparedCheckout ? 'checkout-ready' : 'idle');
   }, [preparedCheckout]);
+
+  const resetCheckoutFlow = useCallback(() => {
+    setCheckoutJson(getDirectCheckoutTemplate(receiver, profile));
+    setPreparedCheckout(null);
+    setMintResult(null);
+    setReconciliation({
+      status: 'idle',
+      detail: 'Mint has not been reconciled yet.'
+    });
+    setLastError(null);
+    setStage('idle');
+    setExecutionStep('idle');
+  }, [profile, receiver]);
 
   const gates = useMemo<MintGate[]>(() => {
     const connected = input.wallet.status === 'connected';
@@ -259,6 +326,7 @@ export function useUniversalAccountMint(input: {
     const hasCheckout = Boolean(preparedCheckout);
     const checkoutReceiverMatch = preparedCheckout ? isSameEvmAddress(preparedCheckout.to, receiver) : false;
     const publicUaChain = isPublicParticleUaChain(profile.ua.targetChainId);
+    const particleConfigured = hasParticleProjectConfig(profile);
 
     return [
       {
@@ -292,18 +360,22 @@ export function useUniversalAccountMint(input: {
       {
         id: 'mint',
         label: `Gate 3: ${profile.ua.chainLabel} ${preparedCheckout?.gatewayVersion ?? profile.gateway.version} mint`,
-        status: mintResult
+        status: reconciliation.status === 'recorded'
           ? 'done'
-          : hasCheckout && connected && (paymentMode === 'direct' ? directCapable : uaCapable) && checkoutReceiverMatch
+          : hasCheckout && connected && (paymentMode === 'direct' ? directCapable : uaCapable && particleConfigured && Boolean(uaProbe)) && checkoutReceiverMatch
             ? 'ready'
             : hasCheckout && !checkoutReceiverMatch ? 'blocked' : 'idle',
-        detail: mintResult
-          ? `${paymentMode === 'direct' ? 'Direct' : 'UA'} transaction sent${mintResult.tokenId ? `, token ${mintResult.tokenId}` : ''}.`
+        detail: reconciliation.status === 'recorded'
+          ? `${paymentMode === 'direct' ? 'Direct' : 'UA'} mint verified, token ${reconciliation.tokenId}.`
+          : mintResult
+            ? 'Transaction submitted. Mogate must verify its target-chain mint before completion.'
           : hasCheckout
             ? checkoutReceiverMatch
               ? paymentMode === 'direct'
                 ? 'Prepared checkout loaded. Payment uses target-chain USDC only.'
-                : 'Prepared checkout loaded. Particle UA will route supported primary assets and execute from the delegated EOA.'
+                : particleConfigured && uaProbe
+                  ? 'Prepared checkout loaded. Particle UA will route USDC or USDT and execute from the delegated EOA.'
+                  : 'Prepared checkout loaded. Particle UA must be configured and probed before payment.'
               : 'Prepared checkout is loaded for a different receiver. Regenerate checkout for the connected owner EOA.'
             : 'Load backend checkout or paste prepared JSON.'
       },
@@ -326,7 +398,11 @@ export function useUniversalAccountMint(input: {
             : `Particle UA SDK 2.x supports listed mainnets only. Keep chain ${profile.ua.targetChainId} in direct mode.`
       }
     ];
-  }, [input.adapter, input.wallet.stack, input.wallet.status, mintResult, paymentMode, preparedCheckout, profile, receiver, uaProbe]);
+  }, [input.adapter, input.wallet.stack, input.wallet.status, mintResult, paymentMode, preparedCheckout, profile, receiver, reconciliation, uaProbe]);
+
+  const uaConfigurationError = paymentMode === 'ua7702' && !hasParticleProjectConfig(profile)
+    ? 'Mainnet checkout requires Particle UA. Add the Particle project ID, client key, and app ID, then restart Metro.'
+    : null;
 
   return {
     stage,
@@ -337,14 +413,19 @@ export function useUniversalAccountMint(input: {
     mintPlan: preparedCheckout ? describeMintPlan(preparedCheckout) : null,
     uaProbe,
     mintResult,
+    lastSuccessfulMintResult,
     reconciliation,
     lastError,
+    paymentMode,
+    uaConfigurationError,
     gates,
     parseCheckout,
     loadCheckoutFromBackend,
     probeUa,
     executeMint,
-    dismissExecutionError
+    retryReconciliation,
+    dismissExecutionError,
+    resetCheckoutFlow
   };
 }
 

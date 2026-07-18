@@ -25,6 +25,8 @@ export function CatalogueScreen({ context }: { context: AppScreenContext }) {
         country={context.catalogue.country}
         lastError={context.catalogue.lastError}
         loading={context.catalogue.loading}
+        providerLoading={context.catalogue.providerLoading}
+        providerWarning={context.catalogue.providerWarning}
         merchants={context.catalogue.visible}
         onCountryChange={context.catalogue.setCountry}
         onLoadMore={context.catalogue.loadMore}

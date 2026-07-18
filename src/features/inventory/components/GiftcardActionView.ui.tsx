@@ -14,7 +14,9 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  Download,
   Eye,
+  Fuel,
   KeyRound,
   PackageOpen,
   QrCode,
@@ -49,10 +51,15 @@ export function GiftcardActionView({
   onOpenExplorer,
   onRecipientChange,
   onSend,
+  onUnwrap,
+  onWithdrawAll,
   paymentCode,
+  paymentCodeConfigured,
   paymentCodeExpiry,
   recipient,
-  sending
+  sending,
+  unwrapping,
+  withdrawing
 }: {
   action: GiftcardAction;
   claimComplete: boolean;
@@ -70,10 +77,15 @@ export function GiftcardActionView({
   onOpenExplorer: () => void | Promise<void>;
   onRecipientChange: (value: string) => void;
   onSend: () => void | Promise<void>;
+  onUnwrap: () => void | Promise<void>;
+  onWithdrawAll: () => void | Promise<void>;
   paymentCode: string | null;
+  paymentCodeConfigured: boolean;
   paymentCodeExpiry: number | null;
   recipient: string;
   sending: boolean;
+  unwrapping: boolean;
+  withdrawing: boolean;
 }) {
   return (
     <FixedHeaderScrollView
@@ -102,10 +114,15 @@ export function GiftcardActionView({
         onOpenExplorer={onOpenExplorer}
         onRecipientChange={onRecipientChange}
         onSend={onSend}
+        onUnwrap={onUnwrap}
+        onWithdrawAll={onWithdrawAll}
         paymentCode={paymentCode}
+        paymentCodeConfigured={paymentCodeConfigured}
         paymentCodeExpiry={paymentCodeExpiry}
         recipient={recipient}
         sending={sending}
+        unwrapping={unwrapping}
+        withdrawing={withdrawing}
       />
     </FixedHeaderScrollView>
   );
@@ -127,10 +144,15 @@ function ActionContent({
   onOpenExplorer,
   onRecipientChange,
   onSend,
+  onUnwrap,
+  onWithdrawAll,
   paymentCode,
+  paymentCodeConfigured,
   paymentCodeExpiry,
   recipient,
-  sending
+  sending,
+  unwrapping,
+  withdrawing
 }: Omit<Parameters<typeof GiftcardActionView>[0], 'onBack'>) {
   if (action === 'view') {
     return (
@@ -169,6 +191,12 @@ function ActionContent({
             <Typography color="muted" type="body-xs">Transfer ownership to another EVM wallet.</Typography>
           </View>
         </View>
+        {item.isFunded ? (
+          <ReserveGasSummary
+            item={item}
+            note="The reserve remains attached to the NFT and moves with it."
+          />
+        ) : null}
         <TextField isInvalid={Boolean(error)}>
           <Label>Wallet address</Label>
           <Input
@@ -189,6 +217,38 @@ function ActionContent({
     );
   }
 
+  if (action === 'unwrap') {
+    return (
+      <Surface className="gap-4 rounded-lg border border-border bg-surface p-4 shadow-none">
+        <View style={styles.sectionLead}>
+          <View style={styles.warningIcon}><AlertTriangle color="#a12f37" size={21} /></View>
+          <View style={styles.sectionCopy}>
+            <Typography.Heading type="h5">Unwrap funded giftcard</Typography.Heading>
+            <Typography color="muted" type="body-xs">Unlock its value for owner withdrawal.</Typography>
+          </View>
+        </View>
+        <ReserveGasSummary
+          item={item}
+          note="After unwrap, Withdraw all releases this reserve together with every funded asset."
+        />
+        <Typography color="muted" type="body-sm">
+          Unwrapping is permanent. The NFT becomes soulbound and can no longer be sent or used to create a Commerce Code.
+        </Typography>
+        {error ? <Typography style={styles.error} type="body-xs">{error}</Typography> : null}
+        <Button
+          className="w-full rounded-lg"
+          isDisabled={unwrapping}
+          onPress={onUnwrap}
+          style={styles.dangerButton}
+          variant="primary"
+        >
+          {unwrapping ? <ActivityIndicator color="#ffffff" size="small" /> : <PackageOpen color="#ffffff" size={18} />}
+          <Button.Label>{unwrapping ? 'Confirming unwrap' : 'Unwrap giftcard'}</Button.Label>
+        </Button>
+      </Surface>
+    );
+  }
+
   if (action === 'claim') {
     return (
       <Surface className="gap-4 rounded-lg border border-border bg-surface p-4 shadow-none">
@@ -197,19 +257,11 @@ function ActionContent({
             {claimComplete ? <Check color="#2f8f5b" size={21} /> : <AlertTriangle color="#a12f37" size={21} />}
           </View>
           <View style={styles.sectionCopy}>
-            <Typography.Heading type="h5">
-              {item.isFunded
-                ? 'Unwrap funded giftcard'
-                : item.isUnwrapped
-                  ? 'Reveal merchant code'
-                  : 'Unwrap and claim'}
-            </Typography.Heading>
+            <Typography.Heading type="h5">{item.isUnwrapped ? 'Reveal merchant code' : 'Unwrap and reveal'}</Typography.Heading>
             <Typography color="muted" type="body-xs">
-              {item.isFunded
-                ? 'Make the NFT soulbound and unlock its attached balances.'
-                : item.isUnwrapped
-                  ? 'Sign a short-lived owner permit to decrypt the protected code.'
-                  : 'Make the NFT non-transferable and unlock its merchant code.'}
+              {item.isUnwrapped
+                ? 'Sign a short-lived owner permit to decrypt the protected code.'
+                : 'Make the NFT non-transferable and unlock its merchant code.'}
             </Typography>
           </View>
         </View>
@@ -228,18 +280,14 @@ function ActionContent({
         ) : claimComplete ? (
           <Surface className="rounded-lg bg-success-soft p-3 shadow-none" variant="transparent">
             <Typography style={styles.successText} type="body-sm">
-              {item.isFunded
-                ? 'The giftcard is soulbound. Withdraw each attached balance from the owner wallet.'
-                : 'The merchant code was securely revealed for the current owner.'}
+              The merchant code was securely revealed for the current owner.
             </Typography>
           </Surface>
         ) : (
           <Typography color="muted" type="body-sm">
-            {item.isFunded
-              ? 'Unwrapping is permanent. The current owner can withdraw value and unused gas reserve afterward.'
-              : item.isUnwrapped
-                ? 'The NFT is already soulbound. Only the current owner can authorize this reveal.'
-                : 'Unwrapping is permanent. The voucher becomes soulbound before its encrypted merchant code can be revealed.'}
+            {item.isUnwrapped
+              ? 'The NFT is already soulbound. Only the current owner can authorize this reveal.'
+              : 'Unwrapping is permanent. The voucher becomes soulbound before its encrypted merchant code can be revealed.'}
           </Typography>
         )}
         {error ? <Typography style={styles.error} type="body-xs">{error}</Typography> : null}
@@ -248,27 +296,54 @@ function ActionContent({
             className="w-full rounded-lg"
             isDisabled={claiming}
             onPress={onClaim}
-            style={item.isFunded ? styles.dangerButton : undefined}
             variant="primary"
           >
             {claiming ? (
               <ActivityIndicator color="#ffffff" size="small" />
-            ) : item.isFunded ? (
-              <PackageOpen color="#ffffff" size={18} />
             ) : (
               <KeyRound color="#ffffff" size={18} />
             )}
             <Button.Label>
               {claiming
                 ? 'Confirming claim'
-                : item.isFunded
-                  ? 'Unwrap funded giftcard'
-                  : item.isUnwrapped
-                    ? 'Reveal merchant code'
-                    : 'Unwrap and reveal'}
+                : item.isUnwrapped
+                  ? 'Reveal merchant code'
+                  : 'Unwrap and reveal'}
             </Button.Label>
           </Button>
         ) : null}
+      </Surface>
+    );
+  }
+
+  if (action === 'withdraw-all') {
+    return (
+      <Surface className="gap-4 rounded-lg border border-border bg-surface p-4 shadow-none">
+        <View style={styles.sectionLead}>
+          <View style={styles.secureIcon}><Download color="#2f8f5b" size={21} /></View>
+          <View style={styles.sectionCopy}>
+            <Typography.Heading type="h5">Withdraw all balances</Typography.Heading>
+            <Typography color="muted" type="body-xs">Release value to the current NFT owner.</Typography>
+          </View>
+        </View>
+        <View style={styles.balanceRows}>
+          {item.fundBalances.length > 0 ? item.fundBalances.map((balance, index) => (
+            <View key={balance.token}>
+              {index > 0 ? <Separator /> : null}
+              <DetailRow label={balance.symbol} value={formatFundAmount(balance.amountDisplay, balance.symbol)} />
+            </View>
+          )) : <DetailRow label="Funded value" value="No active balance" />}
+          <Separator />
+          <DetailRow label="Reserved gas" value={formatFundAmount(item.gasReserveDisplay ?? '0', 'ETH')} />
+        </View>
+        <Typography color="muted" type="body-sm">
+          Every attached token and the unused gas reserve are sent to the current owner. The recipient cannot be changed.
+        </Typography>
+        {error ? <Typography style={styles.error} type="body-xs">{error}</Typography> : null}
+        <Button className="w-full rounded-lg" isDisabled={withdrawing} onPress={onWithdrawAll} variant="primary">
+          {withdrawing ? <ActivityIndicator color="#ffffff" size="small" /> : <Download color="#ffffff" size={18} />}
+          <Button.Label>{withdrawing ? 'Withdrawing balances' : 'Withdraw all'}</Button.Label>
+        </Button>
       </Surface>
     );
   }
@@ -279,10 +354,12 @@ function ActionContent({
         <View style={styles.sectionLead}>
           <View style={styles.iconWell}><QrCode color="#d95f14" size={21} /></View>
           <View style={styles.sectionCopy}>
-            <Typography.Heading type="h5">Programmable payment code</Typography.Heading>
-            <Typography color="muted" type="body-xs">15-minute signature-only handoff.</Typography>
+            <Typography.Heading type="h5">Commerce claim code</Typography.Heading>
+            <Typography color="muted" type="body-xs">EIP-712 intent with EIP-7702 authorization.</Typography>
           </View>
-          <Chip color="accent" size="sm" variant="soft"><Chip.Label>Direct</Chip.Label></Chip>
+          <Chip color={paymentCodeConfigured ? 'accent' : 'warning'} size="sm" variant="soft">
+            <Chip.Label>{paymentCodeConfigured ? '7702' : 'Setup required'}</Chip.Label>
+          </Chip>
         </View>
         {paymentCode ? (
           <>
@@ -309,16 +386,31 @@ function ActionContent({
               <Button.Label>{copied ? 'Code copied' : 'Copy code'}</Button.Label>
             </Button>
           </>
+        ) : paymentCodeConfigured ? (
+          <Typography color="muted" type="body-sm">
+            Sign the Commerce Code intent and a Mogate7702 account authorization. Generating the code costs no gas; the merchant submits both when consuming it.
+          </Typography>
         ) : (
           <Typography color="muted" type="body-sm">
-            Sign a bearer payment code for this NFT. The current direct phase does not attach a UA7702 authorization.
+            Mogate7702Account and the Commerce Code gateway are not deployed on {item.networkLabel} yet. Generation stays disabled until their addresses are configured.
           </Typography>
         )}
         {error ? <Typography style={styles.error} type="body-xs">{error}</Typography> : null}
         {!paymentCode ? (
-          <Button className="w-full rounded-lg" isDisabled={generatingPaymentCode} onPress={onGeneratePaymentCode} variant="primary">
+          <Button
+            className="w-full rounded-lg"
+            isDisabled={!paymentCodeConfigured || generatingPaymentCode}
+            onPress={onGeneratePaymentCode}
+            variant="primary"
+          >
             {generatingPaymentCode ? <ActivityIndicator color="#ffffff" size="small" /> : <QrCode color="#ffffff" size={18} />}
-            <Button.Label>{generatingPaymentCode ? 'Waiting for signature' : 'Generate payment code'}</Button.Label>
+            <Button.Label>
+              {generatingPaymentCode
+                ? 'Waiting for signatures'
+                : paymentCodeConfigured
+                  ? 'Generate claim code'
+                  : 'Mainnet setup required'}
+            </Button.Label>
           </Button>
         ) : null}
       </Surface>
@@ -326,6 +418,35 @@ function ActionContent({
   }
 
   return null;
+}
+
+function ReserveGasSummary({
+  item,
+  note
+}: {
+  item: GiftcardInventoryItem;
+  note: string;
+}) {
+  return (
+    <View style={styles.reserveBlock}>
+      <View style={styles.reserveSummaryRow}>
+        <View style={styles.reserveLabel}>
+          <Fuel color="#2f8f5b" size={17} />
+          <Typography type="body-sm" weight="semibold">Reserved gas</Typography>
+        </View>
+        <Typography type="body-sm" weight="semibold">
+          {formatFundAmount(item.gasReserveDisplay ?? '0', 'ETH')}
+        </Typography>
+      </View>
+      <Typography color="muted" type="body-xs">{note}</Typography>
+    </View>
+  );
+}
+
+function formatFundAmount(value: string, symbol: string) {
+  const [whole, fraction = ''] = value.split('.');
+  const compactFraction = fraction.slice(0, 6).replace(/0+$/, '');
+  return `${compactFraction ? `${whole}.${compactFraction}` : whole} ${symbol}`;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -380,6 +501,30 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     backgroundColor: '#a12f37'
+  },
+  reserveBlock: {
+    borderBottomColor: '#e4e4e7',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e4e4e7',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    paddingVertical: 12
+  },
+  reserveSummaryRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  reserveLabel: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 7
+  },
+  balanceRows: {
+    borderBottomColor: '#e4e4e7',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e4e4e7',
+    borderTopWidth: StyleSheet.hairlineWidth
   },
   detailRow: {
     alignItems: 'center',

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet.ui';
-import { Button } from '@/components/Button';
+import { CopyAddressButton } from '@/components/CopyAddressButton';
 import type { TopUpProvider } from '@/features/topup/hooks/useTopUpSheet';
 import { shortenAddress } from '@/utils/format';
 
@@ -11,6 +11,7 @@ export type TopUpSheetProps = {
   evmAddress?: string | null;
   solanaAddress?: string | null;
   copied?: string | null;
+  copyError?: string | null;
   status?: {
     status: 'idle' | 'opening' | 'success' | 'error';
     message: string | null;
@@ -22,6 +23,7 @@ export type TopUpSheetProps = {
 
 export function TopUpSheet({
   copied,
+  copyError,
   evmAddress,
   onClose,
   onCopyAddress,
@@ -82,6 +84,7 @@ export function TopUpSheet({
         />
       </View>
 
+      {copyError ? <Text style={styles.statusError}>{copyError}</Text> : null}
       {status?.message ? (
         <Text style={[styles.statusText, status.status === 'error' && styles.statusError]}>
           {status.message}
@@ -112,9 +115,12 @@ function AddressBlock({
           {address ? shortenAddress(address, 8, 6) : 'Not available'}
         </Text>
       </View>
-      <Button disabled={!address} onPress={onCopy} variant="quiet">
-        {copied ? 'Copied' : 'Copy'}
-      </Button>
+      <CopyAddressButton
+        accessibilityLabel={`Copy ${label}`}
+        copied={copied}
+        disabled={!address}
+        onCopy={onCopy}
+      />
       <Text style={styles.note}>{note}</Text>
     </View>
   );

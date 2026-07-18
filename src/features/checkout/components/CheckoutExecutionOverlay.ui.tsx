@@ -13,6 +13,7 @@ import { ActivityIndicator, Modal, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CheckoutExecutionStep } from '@/features/checkout/hooks/useUniversalAccountMint';
+import type { GatewayExecutionMode } from '@/config/networkProfiles';
 
 export function CheckoutExecutionOverlay({
   amountLabel,
@@ -20,6 +21,7 @@ export function CheckoutExecutionOverlay({
   onComplete,
   onRetry,
   onReturn,
+  paymentMode,
   step
 }: {
   amountLabel: string;
@@ -27,6 +29,7 @@ export function CheckoutExecutionOverlay({
   onComplete: () => void;
   onRetry: () => void | Promise<void>;
   onReturn: () => void;
+  paymentMode: GatewayExecutionMode;
   step: CheckoutExecutionStep;
 }) {
   const insets = useSafeAreaInsets();
@@ -89,7 +92,7 @@ export function CheckoutExecutionOverlay({
           ) : step === 'complete' ? (
             <CompleteState />
           ) : (
-            <PaymentProgress elapsedSeconds={elapsedSeconds} step={step} />
+            <PaymentProgress elapsedSeconds={elapsedSeconds} paymentMode={paymentMode} step={step} />
           )}
         </View>
 
@@ -125,17 +128,27 @@ function PreparationState({ elapsedSeconds }: { elapsedSeconds: number }) {
 
 function PaymentProgress({
   elapsedSeconds,
+  paymentMode,
   step
 }: {
   elapsedSeconds: number;
+  paymentMode: GatewayExecutionMode;
   step: CheckoutExecutionStep;
 }) {
-  const activeIndex = step === 'confirming-payment' ? 0 : step === 'minting' ? 1 : 2;
-  const steps = [
-    { label: 'Confirm payment', detail: 'Approve the USDC transaction in your wallet.' },
-    { label: 'Minting giftcard', detail: 'The gateway is finalizing the giftcard NFT.' },
-    { label: 'Syncing inventory', detail: 'Confirming ownership and the latest card state.' }
-  ];
+  const steps = paymentMode === 'ua7702'
+    ? [
+        { id: 'routing', label: 'Route stablecoins', detail: 'Particle is preparing USDC or USDT liquidity and destination gas.' },
+        { id: 'authorizing', label: 'Authorize account', detail: 'Privy confirms the inline EIP-7702 authorization and UA root hash.' },
+        { id: 'submitting', label: 'Submit checkout', detail: 'Particle is sending the Universal Transaction to Arbitrum One.' },
+        { id: 'minting', label: 'Mint giftcard', detail: 'The funded gateway is finalizing the giftcard NFT.' },
+        { id: 'reconciling', label: 'Sync inventory', detail: 'Mogate is reconciling the Particle transaction and minted token.' }
+      ]
+    : [
+        { id: 'confirming-payment', label: 'Confirm payment', detail: 'Approve the USDC transaction in your wallet.' },
+        { id: 'minting', label: 'Mint giftcard', detail: 'The gateway is finalizing the giftcard NFT.' },
+        { id: 'reconciling', label: 'Sync inventory', detail: 'Confirming ownership and the latest card state.' }
+      ];
+  const activeIndex = Math.max(0, steps.findIndex((item) => item.id === step));
 
   return (
     <View style={styles.progressWrap}>

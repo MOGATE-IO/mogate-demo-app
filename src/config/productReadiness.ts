@@ -25,6 +25,7 @@ export function getProductReadinessChecks(
   profile: RuntimeNetworkProfile = getDefaultNetworkProfile()
 ): ProductReadinessCheck[] {
   const provider = getSignerProviderInfo(stack);
+  const uaRequired = profile.gatewayExecutionMode === 'ua7702';
   const publicUaChain = isPublicParticleUaChain(profile.ua.targetChainId);
   const chainAllowed = publicUaChain;
   const assetSupport = describeParticlePrimaryAssetConfig({
@@ -42,10 +43,14 @@ export function getProductReadinessChecks(
     {
       id: 'particle-config',
       label: 'Particle project',
-      status: hasParticleProjectConfig(profile) ? 'ready' : 'blocked',
-      detail: hasParticleProjectConfig(profile)
-        ? 'Particle UA project is configured in the active network profile.'
-        : 'Configure the Particle UA project in src/config/networkProfiles.ts when UA minting resumes.'
+      status: uaRequired
+        ? hasParticleProjectConfig(profile) ? 'ready' : 'blocked'
+        : 'idle',
+      detail: uaRequired
+        ? hasParticleProjectConfig(profile)
+          ? 'Particle UA project is configured for Mainnet checkout.'
+          : 'Configure the Particle project ID, client key, and app ID before Mainnet checkout.'
+        : 'The direct Testnet checkout does not use Particle UA.'
     },
     {
       id: 'signer',
@@ -69,10 +74,12 @@ export function getProductReadinessChecks(
     {
       id: 'chain',
       label: 'UA chain',
-      status: chainAllowed ? 'ready' : 'blocked',
-      detail: publicUaChain
-        ? `Chain ${profile.ua.targetChainId} is publicly listed by Particle UA.`
-        : `Particle UA SDK 2.x does not support chain ${profile.ua.targetChainId}. Keep this testnet profile in direct mode.`
+      status: uaRequired ? chainAllowed ? 'ready' : 'blocked' : 'idle',
+      detail: uaRequired
+        ? publicUaChain
+          ? `Chain ${profile.ua.targetChainId} is publicly listed by Particle UA.`
+          : `Particle UA SDK 2.x does not support chain ${profile.ua.targetChainId}.`
+        : 'The direct Testnet checkout does not require Particle chain routing.'
     },
     {
       id: 'primary-asset',
@@ -82,7 +89,7 @@ export function getProductReadinessChecks(
     },
     {
       id: 'gateway',
-      label: `${profile.gateway.version} gateway`,
+      label: `${profile.gateway.version} ${profile.gatewayExecutionMode} gateway`,
       status: fundedGatewayReady ? 'ready' : 'blocked',
       detail: fundedGatewayReady
         ? `Gateway mode ${profile.gateway.version} has required network config.`

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { MintCheckoutView } from '@/features/checkout/components/MintCheckoutView.ui';
 import { hasParticleProjectConfig } from '@/config/networkProfiles';
 import { useMintCheckoutForm } from '@/features/checkout/hooks/useMintCheckoutForm';
+import { getCheckoutFundingReadiness } from '@/features/checkout/services/checkoutReadiness';
 import { isSameEvmAddress } from '@/features/checkout/services/giftcardCheckout';
 import type { AppScreenContext } from './types';
 
@@ -14,6 +15,7 @@ export function MintCheckoutScreen({ context }: { context: AppScreenContext }) {
   useEffect(() => {
     if (
       balanceProbeStarted.current ||
+      context.profile.gatewayExecutionMode !== 'ua7702' ||
       !ownerAddress ||
       mint.uaProbe ||
       !hasParticleProjectConfig(context.profile)
@@ -29,20 +31,29 @@ export function MintCheckoutScreen({ context }: { context: AppScreenContext }) {
   const checkoutReceiverMatch = mint.preparedCheckout
     ? isSameEvmAddress(mint.preparedCheckout.to, context.checkoutSelection?.receiverAddress)
     : false;
-  const directPayment = context.checkoutSelection?.paymentMode !== 'ua7702';
   const { paymentBalances } = context;
   const portfolio = paymentBalances.portfolio;
   const requestedAmount = context.checkoutSelection?.amount ?? 0;
-  const hasSpendableBalance = directPayment
-    ? paymentBalances.status === 'ready' && portfolio.targetUsdc >= requestedAmount
-    : paymentBalances.status === 'ready' && portfolio.totalUsd >= requestedAmount;
-  const hasTargetGas = !directPayment || (paymentBalances.targetNative?.amount ?? 0) > 0;
+  const { hasSpendableBalance, hasTargetGas } = getCheckoutFundingReadiness({
+    executionMode: context.profile.gatewayExecutionMode,
+    balanceStatus: paymentBalances.status,
+    requestedAmount,
+    targetNativeAmount: paymentBalances.targetNative?.amount ?? 0,
+    targetUsdcAmount: portfolio.targetUsdc,
+    unifiedStablecoinAmount: portfolio.totalUsd
+  });
+  const directPayment = context.profile.gatewayExecutionMode === 'direct';
+  const uaReady = directPayment || (
+    hasParticleProjectConfig(context.profile) &&
+    Boolean(mint.uaProbe)
+  );
   const canMint =
     wallet.snapshot.status === 'connected' &&
     (directPayment ? Boolean(wallet.adapter?.getProvider) : context.productSignerReady) &&
     checkoutReceiverMatch &&
     hasSpendableBalance &&
     hasTargetGas &&
+    uaReady &&
     Boolean(mint.preparedCheckout);
 
   return (

@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
 import type { WalletAdapter } from '@/@web3/types/wallet';
-import { generateProgrammablePaymentCode } from '@/features/inventory/services/programmablePaymentCode';
+import {
+  generateProgrammablePaymentCode,
+  hasProgrammablePaymentCodePreset
+} from '@/features/inventory/services/programmablePaymentCode';
 import {
   loadGiftcardInventory,
   type GiftcardInventoryItem
 } from '@/features/inventory/services/giftcardInventory';
 import {
   transferGiftcard,
-  unwrapGiftcard as executeGiftcardUnwrap
+  unwrapGiftcard as executeGiftcardUnwrap,
+  withdrawAllGiftcard as executeGiftcardWithdrawAll
 } from '@/features/inventory/services/giftcardTransactions';
 import { revealGiftcardCode } from '@/features/inventory/services/giftcardReveal';
 import { toErrorMessage } from '@/utils/errors';
@@ -30,6 +34,7 @@ export function useGiftcardInventory({
   const [lastError, setLastError] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [unwrappingId, setUnwrappingId] = useState<string | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [generatingCodeId, setGeneratingCodeId] = useState<string | null>(null);
   const loadGeneration = useRef(0);
 
@@ -149,17 +154,43 @@ export function useGiftcardInventory({
     }
   }, [ownerAddress, profile, wallet]);
 
+  const withdrawAllGiftcard = useCallback(async (item: GiftcardInventoryItem) => {
+    if (!ownerAddress) throw new Error('Connect the owning EVM wallet first.');
+    if (!wallet) throw new Error('The connected wallet cannot withdraw this giftcard.');
+
+    setWithdrawingId(item.id);
+    setLastError(null);
+    try {
+      const transactionHash = await executeGiftcardWithdrawAll({
+        item,
+        ownerAddress,
+        profile,
+        wallet
+      });
+      await refresh();
+      return transactionHash;
+    } catch (error) {
+      setLastError(toErrorMessage(error));
+      throw error;
+    } finally {
+      setWithdrawingId(null);
+    }
+  }, [ownerAddress, profile, refresh, wallet]);
+
   return {
     items,
     status,
     lastError,
     sendingId,
     unwrappingId,
+    withdrawingId,
     generatingCodeId,
+    paymentCodeConfigured: hasProgrammablePaymentCodePreset(profile.ua.targetChainId),
     totalValue,
     refresh,
     sendGiftcard,
     unwrapGiftcard,
+    withdrawAllGiftcard,
     claimGiftcardCode: unwrapGiftcard,
     createPaymentCode
   };

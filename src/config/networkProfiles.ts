@@ -2,8 +2,9 @@ import { MOBILE_ENV, type GatewayVersion, type UaNetworkMode } from '@/config/en
 import type { HexString } from '@/@web3/types/wallet';
 
 export type AppNetworkMode = 'testnet' | 'mainnet';
+export type GatewayExecutionMode = 'direct' | 'ua7702';
 
-export const DEFAULT_NETWORK_MODE: AppNetworkMode = 'testnet';
+export const DEFAULT_NETWORK_MODE: AppNetworkMode = 'mainnet';
 
 export type ParticleProjectConfig = {
   projectId: string;
@@ -44,6 +45,7 @@ export type SolanaBalanceRoute = {
 
 export type RuntimeNetworkProfile = {
   mode: AppNetworkMode;
+  gatewayExecutionMode: GatewayExecutionMode;
   label: string;
   description: string;
   apiBase: string;
@@ -233,6 +235,7 @@ const MAINNET_GATEWAY = {
 export const NETWORK_PROFILES: Record<AppNetworkMode, RuntimeNetworkProfile> = {
   testnet: {
     mode: 'testnet',
+    gatewayExecutionMode: 'direct',
     label: 'Testnet',
     description: 'Sandbox profile for Privy login, direct USDC payment, and Ethereum Sepolia funded minting.',
     apiBase: MOBILE_ENV.apiBase,
@@ -266,8 +269,9 @@ export const NETWORK_PROFILES: Record<AppNetworkMode, RuntimeNetworkProfile> = {
   },
   mainnet: {
     mode: 'mainnet',
+    gatewayExecutionMode: 'ua7702',
     label: 'Mainnet',
-    description: 'Manual mainnet-smoke profile for Privy login, Privy top-up, and Arbitrum One checkout routing.',
+    description: 'Mainnet profile for Privy login and Particle UA EIP-7702 checkout routing on Arbitrum One.',
     apiBase: MOBILE_ENV.apiBase,
     paths: API_PATHS,
     checkoutInitEndpoint: apiUrl(API_PATHS.checkoutInit),

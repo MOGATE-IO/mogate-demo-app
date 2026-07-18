@@ -14,7 +14,8 @@ import { withTimeout } from '@/utils/async';
 const GIFTCARD_ACTION_ABI = [
   'function safeTransferFrom(address from, address to, uint256 tokenId)',
   'function isUnwrapped(uint256 tokenId) view returns (bool)',
-  'function unwrap(uint256 tokenId)'
+  'function unwrap(uint256 tokenId)',
+  'function withdrawAll(uint256 tokenId)'
 ] as const;
 
 type Eip1193Provider = {
@@ -90,6 +91,41 @@ export async function unwrapGiftcard({
   );
   if (!receipt || receipt.status !== 1) throw new Error('Giftcard unwrap reverted.');
   return { alreadyUnwrapped: false, transactionHash: transaction.hash as string };
+}
+
+export async function withdrawAllGiftcard({
+  item,
+  ownerAddress,
+  profile,
+  wallet
+}: {
+  item: GiftcardInventoryItem;
+  ownerAddress: string;
+  profile: RuntimeNetworkProfile;
+  wallet: WalletAdapter;
+}) {
+  if (!item.isFunded) throw new Error('Only funded giftcards contain withdrawable balances.');
+
+  const signer = await getGiftcardSigner({ ownerAddress, profile, wallet });
+  const collection = new Contract(item.collection, GIFTCARD_ACTION_ABI, signer);
+  const isUnwrapped = item.isUnwrapped || Boolean(await withTimeout(
+    collection.isUnwrapped(BigInt(item.tokenId)),
+    15_000,
+    'The giftcard unwrap status could not be loaded.'
+  ));
+  if (!isUnwrapped) throw new Error('Unwrap this funded giftcard before withdrawing its balances.');
+
+  const transaction = await collection.withdrawAll(BigInt(item.tokenId)) as {
+    hash: string;
+    wait: () => Promise<{ status?: number } | null>;
+  };
+  const receipt = await withTimeout(
+    transaction.wait(),
+    180_000,
+    `Giftcard withdrawal was submitted as ${transaction.hash}, but it was not confirmed within 3 minutes.`
+  );
+  if (!receipt || receipt.status !== 1) throw new Error('Giftcard withdrawal reverted.');
+  return transaction.hash as string;
 }
 
 async function getGiftcardSigner({

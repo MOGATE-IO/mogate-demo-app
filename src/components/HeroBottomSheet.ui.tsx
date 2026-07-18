@@ -30,7 +30,14 @@ export function HeroBottomSheet({
     [size]
   );
   const sheetRef = useRef<ComponentRef<typeof BottomSheet.Content>>(null);
+  const onCloseRef = useRef(onClose);
+  const visibleRef = useRef(visible);
   const [snapIndex, setSnapIndex] = useState(0);
+
+  // Gorhom may emit its close event after a controlled visibility change. Read
+  // current props so that event cannot close the parent with a stale render.
+  onCloseRef.current = onClose;
+  visibleRef.current = visible;
 
   useEffect(() => {
     if (visible) setSnapIndex(0);
@@ -58,7 +65,7 @@ export function HeroBottomSheet({
     <BottomSheet
       isOpen={visible}
       onOpenChange={(open) => {
-        if (!open && visible) onClose();
+        if (!open && visibleRef.current) onCloseRef.current();
       }}
     >
       <BottomSheet.Portal>

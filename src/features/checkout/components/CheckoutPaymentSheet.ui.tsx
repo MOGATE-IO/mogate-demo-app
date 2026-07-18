@@ -34,6 +34,7 @@ export function CheckoutPaymentSheet({
   onComplete,
   onCouponCodeChange,
   onRefreshBalances,
+  onReopen,
   onSelectStablecoin,
   onTopUp,
   portfolio,
@@ -52,6 +53,7 @@ export function CheckoutPaymentSheet({
   onComplete: () => void;
   onCouponCodeChange: (couponCode: string) => void;
   onRefreshBalances: () => void | Promise<void>;
+  onReopen: () => void;
   onSelectStablecoin: (symbol: StablecoinSymbol) => void;
   onTopUp: () => void | Promise<void>;
   portfolio: StablecoinPortfolio;
@@ -62,23 +64,49 @@ export function CheckoutPaymentSheet({
   visible: boolean;
 }) {
   const [couponDraft, setCouponDraft] = useState(checkoutSelection?.couponCode ?? '');
+  const [mintQueued, setMintQueued] = useState(false);
   const amount = checkoutSelection?.amount ?? 0;
   const quotedTotal = mint.preparedCheckout
     ? Number(mint.preparedCheckout.checkoutTotalDisplay ?? mint.preparedCheckout.amountDisplay)
     : amount;
   const safeTotal = Number.isFinite(quotedTotal) ? quotedTotal : amount;
   const discount = Math.max(0, amount - safeTotal);
-  const directPayment = checkoutSelection?.paymentMode !== 'ua7702';
+  const directPayment = profile.gatewayExecutionMode === 'direct';
   const loadingCheckout = mint.stage === 'loading-checkout';
   const paying = mint.stage === 'building';
-  const insufficientDirectBalance = balanceStatus === 'ready' && portfolio.targetUsdc < safeTotal;
+  const insufficientDirectBalance = directPayment && balanceStatus === 'ready' && portfolio.targetUsdc < safeTotal;
+  const insufficientUaBalance = !directPayment && balanceStatus === 'ready' && portfolio.totalUsd < safeTotal;
   const missingDirectGas = directPayment && balanceStatus === 'ready' && targetNativeAmount <= 0;
 
   useEffect(() => {
     if (visible) setCouponDraft(checkoutSelection?.couponCode ?? '');
   }, [checkoutSelection?.couponCode, visible]);
 
-  const retryCheckout = mint.preparedCheckout ? mint.executeMint : mint.loadCheckoutFromBackend;
+  useEffect(() => {
+    if (!mintQueued || visible) return undefined;
+    const timer = setTimeout(() => {
+      setMintQueued(false);
+      void mint.executeMint();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [mint.executeMint, mintQueued, visible]);
+
+  const beginMint = () => {
+    if (mintQueued || paying) return;
+    setMintQueued(true);
+    onClose();
+  };
+
+  const returnToCheckout = () => {
+    mint.dismissExecutionError();
+    setTimeout(onReopen, 300);
+  };
+
+  const retryCheckout = mint.mintResult
+    ? mint.retryReconciliation
+    : mint.preparedCheckout
+      ? mint.executeMint
+      : mint.loadCheckoutFromBackend;
 
   return (
     <>
@@ -86,14 +114,22 @@ export function CheckoutPaymentSheet({
         description={directPayment ? `Direct USDC on ${profile.ua.chainLabel}` : 'UA7702 stablecoin route'}
         footer={(
           <View style={styles.footer}>
-            {mint.preparedCheckout ? (
+            {mint.mintResult ? (
               <Button
                 className="w-full rounded-lg"
-                isDisabled={!canMint || !receiverValid || paying}
-                onPress={mint.executeMint}
+                onPress={mint.retryReconciliation}
                 variant="primary"
               >
-                <Button.Label>Pay {formatUsdAmount(safeTotal)}</Button.Label>
+                <Button.Label>Check mint status</Button.Label>
+              </Button>
+            ) : mint.preparedCheckout ? (
+              <Button
+                className="w-full rounded-lg"
+                isDisabled={!canMint || !receiverValid || paying || mintQueued}
+                onPress={beginMint}
+                variant="primary"
+              >
+                <Button.Label>{mintQueued ? 'Opening checkout...' : `Pay ${formatUsdAmount(safeTotal)}`}</Button.Label>
               </Button>
             ) : (
               <Button
@@ -102,7 +138,7 @@ export function CheckoutPaymentSheet({
                 onPress={mint.loadCheckoutFromBackend}
                 variant="primary"
               >
-                <Button.Label>Review payment</Button.Label>
+                <Button.Label>{loadingCheckout ? 'Preparing checkout...' : 'Review payment'}</Button.Label>
               </Button>
             )}
           </View>
@@ -168,6 +204,11 @@ export function CheckoutPaymentSheet({
                       Add {formatUsdAmount(safeTotal - portfolio.targetUsdc)} USDC on {profile.ua.chainLabel} for this direct payment.
                     </InlineAlert>
                   ) : null}
+                  {insufficientUaBalance ? (
+                    <InlineAlert>
+                      Add {formatUsdAmount(safeTotal - portfolio.totalUsd)} in USDC or USDT to a Particle-supported chain.
+                    </InlineAlert>
+                  ) : null}
                   {missingDirectGas ? (
                     <InlineAlert>
                       Add testnet ETH on {profile.ua.chainLabel} for gas.
@@ -185,6 +226,7 @@ export function CheckoutPaymentSheet({
             />
 
             {mint.lastError && mint.executionStep === 'idle' ? <InlineAlert>{mint.lastError}</InlineAlert> : null}
+            {mint.uaConfigurationError ? <InlineAlert>{mint.uaConfigurationError}</InlineAlert> : null}
           </BottomSheetScrollView>
         </View>
       </HeroBottomSheet>
@@ -194,7 +236,8 @@ export function CheckoutPaymentSheet({
         error={mint.lastError}
         onComplete={onComplete}
         onRetry={retryCheckout}
-        onReturn={mint.dismissExecutionError}
+        onReturn={returnToCheckout}
+        paymentMode={profile.gatewayExecutionMode}
         step={mint.executionStep}
       />
     </>

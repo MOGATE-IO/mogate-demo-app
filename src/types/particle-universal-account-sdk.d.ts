@@ -78,5 +78,6 @@ declare module '@particle-network/universal-account-sdk' {
       signature: string,
       authorizations?: EIP7702Authorization[]
     ): Promise<Record<string, any>>;
+    getTransaction(transactionId: string): Promise<Record<string, any>>;
   }
 }

@@ -19,7 +19,9 @@ export type CatalogueBrowserProps = {
   query: string;
   country: string;
   loading: boolean;
+  providerLoading: boolean;
   lastError?: string | null;
+  providerWarning?: string | null;
   merchants: GiftcardMerchant[];
   totalCount: number;
   canLoadMore: boolean;
@@ -37,6 +39,8 @@ export function CatalogueBrowser({
   country,
   lastError,
   loading,
+  providerLoading,
+  providerWarning,
   merchants,
   totalCount,
   canLoadMore,
@@ -154,8 +158,26 @@ export function CatalogueBrowser({
           </Surface>
         ) : null}
 
+        {!lastError && providerWarning ? (
+          <Surface className="rounded-lg bg-warning-soft p-3 shadow-none" variant="transparent">
+            <View style={styles.errorContent}>
+              <CircleAlert color="#a85d00" size={18} />
+              <View style={styles.errorCopy}>
+                <Typography type="body-xs">{providerWarning}</Typography>
+              </View>
+              <Button accessibilityLabel="Retry external catalogue" onPress={onRetry} size="sm" variant="ghost">
+                <RotateCw color="#a85d00" size={16} />
+              </Button>
+            </View>
+          </Surface>
+        ) : null}
+
         <Typography color="muted" type="body-xs">
-          {loading ? 'Loading catalogue' : `${merchants.length} of ${totalCount} merchants`}
+          {loading
+            ? 'Loading catalogue'
+            : providerLoading
+              ? `${merchants.length} merchants · Loading more`
+              : `${merchants.length} of ${totalCount} merchants`}
         </Typography>
       </View>
 

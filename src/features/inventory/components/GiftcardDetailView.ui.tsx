@@ -2,10 +2,12 @@ import { Button, Chip, Separator, Surface, Typography } from 'heroui-native';
 import {
   ArrowUpRight,
   Coins,
+  Download,
   Eye,
   Fuel,
   KeyRound,
   LockKeyhole,
+  PackageOpen,
   QrCode,
   Send,
   type LucideIcon
@@ -158,7 +160,9 @@ const ACTION_ICONS: Record<GiftcardAction, LucideIcon> = {
   view: Eye,
   send: Send,
   claim: KeyRound,
-  'payment-code': QrCode
+  unwrap: PackageOpen,
+  'payment-code': QrCode,
+  'withdraw-all': Download
 };
 
 function formatFundAmount(value: string, symbol: string) {

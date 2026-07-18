@@ -12,7 +12,7 @@ import {
 
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
 import type { HexString, WalletAdapter } from '@/@web3/types/wallet';
-import { executeUaUnsafeCheckout } from '@/@web3/services/particleUniversalAccount';
+import { executeUaGiftcardCheckout } from '@/@web3/services/particleUniversalAccount';
 import {
   ERC20_APPROVAL_ABI,
   MOGATE_UA_FUNDED_GATEWAY_ABI,
@@ -54,7 +54,12 @@ export type GiftcardPaymentResult = {
   universalXUrl?: string;
 };
 
-export type GiftcardPaymentProgressStep = 'confirming-payment' | 'minting';
+export type GiftcardPaymentProgressStep =
+  | 'confirming-payment'
+  | 'routing'
+  | 'authorizing'
+  | 'submitting'
+  | 'minting';
 
 export type GiftcardPayInput = {
   amount: bigint;
@@ -81,6 +86,16 @@ function assertPaymentMatchesCheckout(input: GiftcardPayInput) {
   if (!configuredUsdc || configuredUsdc.address.toLowerCase() !== input.checkout.paymentToken.toLowerCase()) {
     throw new Error(
       `Prepared payment token is not the configured USDC on ${input.profile.ua.chainLabel}. Prepare checkout again.`
+    );
+  }
+}
+
+export function assertGatewayExecutionMode(input: Pick<GiftcardPayInput, 'profile' | 'ua7702'>) {
+  const requestedMode = input.ua7702 ? 'ua7702' : 'direct';
+  const requiredMode = input.profile.gatewayExecutionMode;
+  if (requestedMode !== requiredMode) {
+    throw new Error(
+      `${input.profile.label} funded checkout requires ${requiredMode} execution; ${requestedMode} execution is disabled for this profile.`
     );
   }
 }
@@ -440,22 +455,38 @@ async function payDirect(input: GiftcardPayInput): Promise<GiftcardPaymentResult
 }
 
 export async function pay(input: GiftcardPayInput): Promise<GiftcardPaymentResult> {
+  assertGatewayExecutionMode(input);
   assertPaymentMatchesCheckout(input);
 
   if (!input.ua7702) return payDirect(input);
 
-  input.onProgress?.('confirming-payment');
-  const uaResult = await executeUaUnsafeCheckout({
+  assertPreparedFundedCheckoutIntegrity(
+    input.checkout,
+    input.ownerAddress,
+    input.profile
+  );
+  await assertFundedGatewayReady(
+    input.checkout,
+    new JsonRpcProvider(
+      input.profile.ua.rpcUrl,
+      input.profile.ua.targetChainId,
+      { staticNetwork: true }
+    )
+  );
+
+  const uaResult = await executeUaGiftcardCheckout({
     ownerAddress: input.ownerAddress,
     wallet: input.wallet,
     checkout: input.checkout,
-    profile: input.profile
+    profile: input.profile,
+    onProgress: input.onProgress
   });
   input.onProgress?.('minting');
 
   return {
     ...uaResult,
     mode: 'ua7702',
-    authorizations: uaResult.authorizations
+    authorizations: uaResult.authorizations,
+    transactionHash: uaResult.transactionHash
   };
 }

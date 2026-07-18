@@ -28,6 +28,15 @@ export type GiftcardCatalogueQuery = {
   provider?: string;
 };
 
+export type ProgressiveCatalogueResult = {
+  items: GiftcardMerchant[];
+  providerWarning: string | null;
+};
+
+export type ProgressiveCatalogueOptions = {
+  onInternal?: (items: GiftcardMerchant[]) => void;
+};
+
 function normalizeId(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 }
@@ -133,6 +142,20 @@ function buildCatalogueUrl(profile: RuntimeNetworkProfile, query?: GiftcardCatal
   return url.toString();
 }
 
+function merchantKey(item: GiftcardMerchant) {
+  const provider = item.provider?.trim().toLowerCase() || 'unknown';
+  return item.providerBrandKey?.trim().toLowerCase() || `${provider}:${item.backendBrandId.toLowerCase()}`;
+}
+
+export function mergeGiftcardCatalogues(
+  internal: GiftcardMerchant[],
+  external: GiftcardMerchant[]
+) {
+  const merged = new Map<string, GiftcardMerchant>();
+  for (const item of [...internal, ...external]) merged.set(merchantKey(item), item);
+  return Array.from(merged.values());
+}
+
 export async function fetchGiftcardCatalogue(
   profile: RuntimeNetworkProfile,
   query?: GiftcardCatalogueQuery
@@ -157,4 +180,46 @@ export async function fetchGiftcardCatalogue(
     throw new Error('Catalogue endpoint response must be an array or contain items/merchants/catalogue.');
   }
   return rows.map(normalizeMerchant);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export async function fetchGiftcardCatalogueProgressively(
+  profile: RuntimeNetworkProfile,
+  query?: Omit<GiftcardCatalogueQuery, 'provider'>,
+  options: ProgressiveCatalogueOptions = {}
+): Promise<ProgressiveCatalogueResult> {
+  let internal: GiftcardMerchant[] = [];
+  let external: GiftcardMerchant[] = [];
+  let internalError: unknown;
+  let externalError: unknown;
+
+  try {
+    internal = await fetchGiftcardCatalogue(profile, { ...query, provider: 'internal' });
+    options.onInternal?.(internal);
+  } catch (error) {
+    internalError = error;
+  }
+
+  try {
+    external = await fetchGiftcardCatalogue(profile, { ...query, provider: 'reloadly' });
+  } catch (error) {
+    externalError = error;
+  }
+
+  const items = mergeGiftcardCatalogues(internal, external);
+  if (items.length === 0) {
+    const reasons = [internalError, externalError].filter(Boolean).map(errorMessage);
+    throw new Error(reasons[0] || 'No catalogue items are currently available.');
+  }
+
+  const providerWarning = externalError
+    ? `Some external giftcards are temporarily unavailable. ${errorMessage(externalError)}`
+    : internalError
+      ? `Mogate catalogue entries are temporarily unavailable. ${errorMessage(internalError)}`
+      : null;
+
+  return { items, providerWarning };
 }

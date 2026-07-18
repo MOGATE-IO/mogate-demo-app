@@ -2,7 +2,7 @@ import { TypedDataEncoder, Wallet, keccak256, toUtf8Bytes } from 'ethers';
 import { describe, expect, it } from 'vitest';
 
 import { ZERO_ADDRESS } from '../src/config/contracts';
-import { getDefaultNetworkProfile } from '../src/config/networkProfiles';
+import { getNetworkProfile } from '../src/config/networkProfiles';
 import type { HexString } from '../src/@web3/types/wallet';
 import {
   assertPreparedFundedCheckoutIntegrity,
@@ -28,7 +28,7 @@ const checkoutTypes = {
 };
 
 async function signedCheckout() {
-  const profile = getDefaultNetworkProfile();
+  const profile = getNetworkProfile('testnet');
   const signer = new Wallet(`0x${'42'.repeat(32)}`);
   const owner = signer.address as HexString;
   const usdc = profile.stablecoinRoutes

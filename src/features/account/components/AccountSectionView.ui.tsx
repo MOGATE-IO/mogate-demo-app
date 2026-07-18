@@ -12,6 +12,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { FixedHeaderScrollView } from '@/components/FixedHeaderScrollView.ui';
 import { PageHeader } from '@/components/PageHeader.ui';
+import { SegmentOption, SegmentedControl } from '@/components/SegmentedControl';
+import type { AppNetworkMode } from '@/config/networkProfiles';
 import { ACCOUNT_SECTIONS, type AccountSection } from '@/navigation/account';
 
 const SECTION_ICON: Record<AccountSection, LucideIcon> = {
@@ -32,12 +34,21 @@ const SECTION_ROWS: Record<AccountSection, string[]> = {
   'terms-privacy': ['Terms of service', 'Privacy policy', 'Wallet disclosures']
 };
 
+const NETWORK_OPTIONS: SegmentOption<AppNetworkMode>[] = [
+  { value: 'testnet', label: 'Testnet' },
+  { value: 'mainnet', label: 'Mainnet' }
+];
+
 export function AccountSectionView({
   onBack,
-  section
+  section,
+  networkMode,
+  onNetworkModeChange
 }: {
   onBack: () => void;
   section: AccountSection;
+  networkMode?: AppNetworkMode;
+  onNetworkModeChange?: (mode: AppNetworkMode) => void;
 }) {
   const metadata = ACCOUNT_SECTIONS[section];
   const Icon = SECTION_ICON[section];
@@ -55,9 +66,24 @@ export function AccountSectionView({
       </View>
 
       <Surface className="overflow-hidden rounded-lg border border-border bg-surface px-3 shadow-none">
+        {section === 'account-settings' && networkMode && onNetworkModeChange ? (
+          <View style={styles.environment}>
+            <View style={styles.environmentHeader}>
+              <View style={styles.rowCopy}>
+                <Typography style={styles.rowLabel} type="body-sm" weight="semibold">Network environment</Typography>
+                <Typography color="muted" type="body-xs">{networkMode === 'mainnet' ? 'Mainnet' : 'Testnet'}</Typography>
+              </View>
+              <SegmentedControl
+                value={networkMode}
+                options={NETWORK_OPTIONS}
+                onChange={onNetworkModeChange}
+              />
+            </View>
+          </View>
+        ) : null}
         {SECTION_ROWS[section].map((label, index) => (
           <View key={label}>
-            {index > 0 ? <Separator /> : null}
+            {index > 0 || (section === 'account-settings' && networkMode && onNetworkModeChange) ? <Separator /> : null}
             <View style={styles.row}>
               <Typography style={styles.rowLabel} type="body-sm" weight="semibold">{label}</Typography>
               <Chip color="default" size="sm" variant="soft">
@@ -100,8 +126,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: 8
   },
+  rowCopy: {
+    flex: 1,
+    gap: 3
+  },
   rowLabel: {
     flex: 1
+  },
+  environment: {
+    paddingHorizontal: 2,
+    paddingVertical: 14
+  },
+  environmentHeader: {
+    gap: 12
   },
   protection: {
     alignItems: 'center',

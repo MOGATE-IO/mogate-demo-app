@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Accordion,
   Button,
@@ -125,13 +125,18 @@ export function MintCheckoutView({
     value: selectedRegion
   };
 
+  useEffect(() => () => mint.resetCheckoutFlow(), [mint.resetCheckoutFlow]);
+
   return (
     <View style={styles.screen}>
       <View style={styles.fixedHeader}>
         <PageHeader
           backLabel="Back to catalogue"
-          onBack={onBack}
-          subtitle={`${profile.mode === 'testnet' ? 'Testnet' : 'Mainnet'} / direct USDC / ${profile.ua.chainLabel}`}
+          onBack={() => {
+            mint.resetCheckoutFlow();
+            onBack();
+          }}
+          subtitle={`${profile.mode === 'testnet' ? 'Testnet' : 'Mainnet'} / ${profile.gatewayExecutionMode === 'ua7702' ? 'Particle UA' : 'direct USDC'} / ${profile.ua.chainLabel}`}
           title={merchant?.name ?? 'Mint checkout'}
         />
       </View>
@@ -351,9 +356,14 @@ export function MintCheckoutView({
         checkoutSelection={checkoutSelection}
         mint={mint}
         onClose={() => setCheckoutOpen(false)}
-        onComplete={onCheckoutComplete}
+        onComplete={() => {
+          setCheckoutOpen(false);
+          mint.resetCheckoutFlow();
+          onCheckoutComplete();
+        }}
         onCouponCodeChange={onSetCouponCode}
         onRefreshBalances={onRefreshBalances}
+        onReopen={() => setCheckoutOpen(true)}
         onSelectStablecoin={setSelectedStablecoin}
         onTopUp={onTopUp}
         portfolio={portfolio}

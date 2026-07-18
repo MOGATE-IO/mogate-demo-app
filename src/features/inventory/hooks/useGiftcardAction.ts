@@ -17,9 +17,7 @@ export function useGiftcardAction({
   const [error, setError] = useState<string | null>(null);
   const [claimedCode, setClaimedCode] = useState<string | null>(item.giftCode);
   const [claimedPinCode, setClaimedPinCode] = useState<string | null>(null);
-  const [claimComplete, setClaimComplete] = useState(
-    item.isFunded ? item.isUnwrapped : Boolean(item.giftCode)
-  );
+  const [claimComplete, setClaimComplete] = useState(Boolean(item.giftCode));
   const [paymentCode, setPaymentCode] = useState<string | null>(null);
   const [paymentCodeExpiry, setPaymentCodeExpiry] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
@@ -47,13 +45,33 @@ export function useGiftcardAction({
     }
   }, [inventory, item]);
 
+  const unwrap = useCallback(async () => {
+    setError(null);
+    try {
+      await inventory.unwrapGiftcard(item);
+      onSent();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Giftcard unwrap failed.');
+    }
+  }, [inventory, item, onSent]);
+
+  const withdrawAll = useCallback(async () => {
+    setError(null);
+    try {
+      await inventory.withdrawAllGiftcard(item);
+      onSent();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Giftcard withdrawal failed.');
+    }
+  }, [inventory, item, onSent]);
+
   const generatePaymentCode = useCallback(async () => {
     setError(null);
     setCopied(false);
     try {
       const result = await inventory.createPaymentCode(item, {
         expirySeconds: 15 * 60,
-        ua7702: false
+        ua7702: true
       });
       setPaymentCode(result.code);
       setPaymentCodeExpiry(result.expiresAtUnixSeconds);
@@ -80,12 +98,15 @@ export function useGiftcardAction({
     generatePaymentCode,
     generatingPaymentCode: inventory.generatingCodeId === item.id,
     paymentCode,
+    paymentCodeConfigured: inventory.paymentCodeConfigured,
     paymentCodeExpiry,
     recipient,
     send,
     sending: inventory.sendingId === item.id,
-    unwrap: claim,
+    unwrap,
     unwrapping: inventory.unwrappingId === item.id,
+    withdrawAll,
+    withdrawing: inventory.withdrawingId === item.id,
     setRecipient
   };
 }

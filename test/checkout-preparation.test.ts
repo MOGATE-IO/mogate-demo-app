@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getDefaultNetworkProfile } from '../src/config/networkProfiles';
+import { getNetworkProfile } from '../src/config/networkProfiles';
 import {
   buildGiftcardMintCalls,
   fetchPreparedCheckout,
@@ -10,6 +10,7 @@ import {
 const receiver = '0x1111111111111111111111111111111111111111';
 const paymentToken = '0x16369CD4B9533795dCdc0D67DB3E4c621ef97D68';
 const signature = `0x${'11'.repeat(65)}`;
+const testnetProfile = getNetworkProfile('testnet');
 
 function preparedResponse() {
   return {
@@ -62,7 +63,7 @@ describe('checkout preparation', () => {
     const checkout = parsePreparedCheckoutJson(
       JSON.stringify(preparedResponse()),
       receiver,
-      getDefaultNetworkProfile()
+      testnetProfile
     );
 
     expect(checkout).toMatchObject({
@@ -75,7 +76,7 @@ describe('checkout preparation', () => {
     });
     expect(checkout.encKey?.ctHash).toBe(1234n);
 
-    const calls = buildGiftcardMintCalls(checkout);
+    const calls = buildGiftcardMintCalls(checkout, testnetProfile);
     expect(calls.chainId).toBe(11155111);
     expect(calls.transactions.at(-1)?.to).toBe(
       '0x98f7EBAedE6248a98a7B9107307EA2d56b143759'
@@ -108,7 +109,7 @@ describe('checkout preparation', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(preparedResponse()), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const checkout = await fetchPreparedCheckout(receiver, getDefaultNetworkProfile(), {
+    const checkout = await fetchPreparedCheckout(receiver, testnetProfile, {
       merchantId: 'mogate',
       amountDisplay: '0.1',
       network: 'ethereum',
@@ -158,7 +159,7 @@ describe('checkout preparation', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(preparedResponse()), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchPreparedCheckout(receiver, getDefaultNetworkProfile(), {
+    await fetchPreparedCheckout(receiver, testnetProfile, {
       merchantId: 'mogate',
       amountDisplay: '50',
       network: 'ethereum',

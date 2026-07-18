@@ -54,8 +54,17 @@ const PAYMENT_CODE_PRESETS: Record<number, {
     account7702: '0xe2eec3443af330514e9fb6b3fa6880f56c069d8c',
     codePrefix: 'arb',
     gateway: '0xd290428e60932a34551cd385adcbb9faf8850c89'
+  },
+  42161: {
+    account7702: '0xf1f77D2F6CcC18068F824d6863d815921c08a5C0',
+    codePrefix: 'arb1',
+    gateway: '0xeB7d9D02a6E47a63Fe42D0f29AdBfb0F77fEDC4E'
   }
 };
+
+export function hasProgrammablePaymentCodePreset(chainId: number) {
+  return Boolean(PAYMENT_CODE_PRESETS[chainId]);
+}
 
 type PaymentCodeAuthorization = {
   address: HexString;
@@ -109,7 +118,7 @@ export async function generateProgrammablePaymentCode({
     expiry,
     chainId: BigInt(profile.ua.targetChainId),
     rulesHash: ZeroHash,
-    visibilityPaymentCode: 1,
+    visibilityPaymentCode: 0,
     sponsorMode: 0,
     gasReimbursementLimit: 0n,
     paymentCodeCommitment: keccak256(secret)

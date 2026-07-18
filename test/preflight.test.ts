@@ -30,6 +30,9 @@ function runPreflight(env: Record<string, string> = {}) {
 describe('mobile preflight', () => {
   it('fails closed when product configuration is missing', () => {
     const result = runPreflight({
+      EXPO_PUBLIC_PARTICLE_PROJECT_ID: '',
+      EXPO_PUBLIC_PARTICLE_CLIENT_KEY: '',
+      EXPO_PUBLIC_PARTICLE_APP_ID: '',
       EXPO_PUBLIC_PRIVY_APP_ID: '',
       EXPO_PUBLIC_PRIVY_CLIENT_ID: ''
     });
@@ -37,14 +40,20 @@ describe('mobile preflight', () => {
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('[BLOCKED] Particle project');
     expect(result.stdout).toContain('[BLOCKED] Signer project');
-    expect(result.stdout).toContain('[BLOCKED] Particle UA chain');
-    expect(result.stdout).toContain('[OK] Direct funded gateway');
+    expect(result.stdout).toContain('[OK] Gateway execution');
+    expect(result.stdout).toContain('[OK] Particle UA chain');
+    expect(result.stdout).toContain('[OK] USDC Primary Asset');
+    expect(result.stdout).toContain('[OK] USDT Primary Asset');
+    expect(result.stdout).toContain('[OK] UA funded gateway');
     expect(result.stdout).toContain('[OK] API base');
     expect(result.stdout).toContain('Product UA sends must stay disabled');
   });
 
   it('moves login and top-up gates to ready when provider credentials exist', () => {
     const result = runPreflight({
+      EXPO_PUBLIC_PARTICLE_PROJECT_ID: '',
+      EXPO_PUBLIC_PARTICLE_CLIENT_KEY: '',
+      EXPO_PUBLIC_PARTICLE_APP_ID: '',
       EXPO_PUBLIC_PRIVY_APP_ID: 'privy-app',
       EXPO_PUBLIC_PRIVY_CLIENT_ID: 'privy-client',
       EXPO_API_BASE: 'http://localhost:4000'
@@ -55,13 +64,16 @@ describe('mobile preflight', () => {
     expect(result.stdout).toContain('[OK] EIP-7702 signer');
     expect(result.stdout).toContain('[OK] Signer project');
     expect(result.stdout).toContain('[OK] API base');
-    expect(result.stdout).toContain('[BLOCKED] Particle UA chain');
-    expect(result.stdout).toContain('[OK] Direct funded gateway');
+    expect(result.stdout).toContain('[OK] Particle UA chain');
+    expect(result.stdout).toContain('[OK] UA funded gateway');
   });
 
   it('ignores env attempts to switch the product signer stack', () => {
     const result = runPreflight({
       ['EXPO_PUBLIC_' + 'CURRENT_WALLET_STACK']: 'particle',
+      EXPO_PUBLIC_PARTICLE_PROJECT_ID: '',
+      EXPO_PUBLIC_PARTICLE_CLIENT_KEY: '',
+      EXPO_PUBLIC_PARTICLE_APP_ID: '',
       EXPO_PUBLIC_PRIVY_APP_ID: 'privy-app',
       EXPO_PUBLIC_PRIVY_CLIENT_ID: 'privy-client',
       EXPO_API_BASE: 'http://localhost:4000'
@@ -70,5 +82,19 @@ describe('mobile preflight', () => {
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('[OK] EIP-7702 signer: privy is product-enabled');
     expect(result.stdout).not.toContain('Particle RN Auth is a probe');
+  });
+
+  it('passes Mainnet UA preflight when Particle and Privy are configured', () => {
+    const result = runPreflight({
+      EXPO_PUBLIC_PARTICLE_PROJECT_ID: 'particle-project',
+      EXPO_PUBLIC_PARTICLE_CLIENT_KEY: 'particle-client',
+      EXPO_PUBLIC_PARTICLE_APP_ID: 'particle-app',
+      EXPO_PUBLIC_PRIVY_APP_ID: 'privy-app',
+      EXPO_PUBLIC_PRIVY_CLIENT_ID: 'privy-client',
+      EXPO_API_BASE: 'http://localhost:4000'
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Preflight passed');
   });
 });

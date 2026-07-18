@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+
 export type GatewayVersion = 'v0' | 'signed-v1' | 'signed-v2';
 export type UaNetworkMode = 'testnet-proof' | 'mainnet-smoke';
 
@@ -19,7 +21,12 @@ function readGatewayVersion(): GatewayVersion {
     : 'signed-v2';
 }
 
-export const EXPO_API_BASE = readEnv('EXPO_API_BASE', 'http://localhost:4000');
+function readExpoExtra(key: string, fallback = '') {
+  const value = Constants.expoConfig?.extra?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+export const EXPO_API_BASE = readExpoExtra('apiBase', 'http://localhost:4000');
 
 export const MOBILE_ENV = {
   apiBase: EXPO_API_BASE,

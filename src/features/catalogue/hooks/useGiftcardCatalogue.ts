@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
 import {
-  fetchGiftcardCatalogue,
+  fetchGiftcardCatalogueProgressively,
   type GiftcardMerchant
 } from '@/features/catalogue/services/catalogue';
 import { toErrorMessage } from '@/utils/errors';
@@ -16,34 +16,51 @@ export function useGiftcardCatalogue(profile: RuntimeNetworkProfile) {
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
+  const [providerLoading, setProviderLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [providerWarning, setProviderWarning] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
-  const load = useCallback(
-    async (options: { cancelled?: () => boolean } = {}) => {
-      setLoading(true);
-      setLastError(null);
-      try {
-        const next = await fetchGiftcardCatalogue(profile, { country });
-        if (!options.cancelled?.()) setItems(next);
-      } catch (error) {
-        if (!options.cancelled?.()) {
-          setItems([]);
-          setLastError(toErrorMessage(error));
+  const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    const isCurrent = () => requestIdRef.current === requestId;
+    setLoading(true);
+    setProviderLoading(true);
+    setLastError(null);
+    setProviderWarning(null);
+    try {
+      const result = await fetchGiftcardCatalogueProgressively(
+        profile,
+        { country },
+        {
+          onInternal: (internal) => {
+            if (!isCurrent()) return;
+            setItems(internal);
+            if (internal.length > 0) setLoading(false);
+          }
         }
-      } finally {
-        if (!options.cancelled?.()) setLoading(false);
+      );
+      if (!isCurrent()) return;
+      setItems(result.items);
+      setProviderWarning(result.providerWarning);
+    } catch (error) {
+      if (isCurrent()) {
+        setItems([]);
+        setLastError(toErrorMessage(error));
       }
-    },
-    [country, profile]
-  );
+    } finally {
+      if (isCurrent()) {
+        setLoading(false);
+        setProviderLoading(false);
+      }
+    }
+  }, [country, profile]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    void load({ cancelled: () => cancelled });
+    void load();
 
     return () => {
-      cancelled = true;
+      requestIdRef.current += 1;
     };
   }, [load]);
 
@@ -103,7 +120,9 @@ export function useGiftcardCatalogue(profile: RuntimeNetworkProfile) {
     query,
     setQuery,
     loading,
+    providerLoading,
     lastError,
+    providerWarning,
     reload: () => load()
   };
 }
