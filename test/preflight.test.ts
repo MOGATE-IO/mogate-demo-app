@@ -33,8 +33,8 @@ describe('mobile preflight', () => {
       EXPO_PUBLIC_PARTICLE_PROJECT_ID: '',
       EXPO_PUBLIC_PARTICLE_CLIENT_KEY: '',
       EXPO_PUBLIC_PARTICLE_APP_ID: '',
-      EXPO_PUBLIC_PRIVY_APP_ID: '',
-      EXPO_PUBLIC_PRIVY_CLIENT_ID: ''
+      EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY: '',
+      EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI: ''
     });
 
     expect(result.status).toBe(1);
@@ -54,8 +54,8 @@ describe('mobile preflight', () => {
       EXPO_PUBLIC_PARTICLE_PROJECT_ID: '',
       EXPO_PUBLIC_PARTICLE_CLIENT_KEY: '',
       EXPO_PUBLIC_PARTICLE_APP_ID: '',
-      EXPO_PUBLIC_PRIVY_APP_ID: 'privy-app',
-      EXPO_PUBLIC_PRIVY_CLIENT_ID: 'privy-client',
+      EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY: 'magic-publishable',
+      EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI: 'mogate-ua://magic-oauth',
       EXPO_API_BASE: 'http://localhost:4000'
     });
 
@@ -74,23 +74,23 @@ describe('mobile preflight', () => {
       EXPO_PUBLIC_PARTICLE_PROJECT_ID: '',
       EXPO_PUBLIC_PARTICLE_CLIENT_KEY: '',
       EXPO_PUBLIC_PARTICLE_APP_ID: '',
-      EXPO_PUBLIC_PRIVY_APP_ID: 'privy-app',
-      EXPO_PUBLIC_PRIVY_CLIENT_ID: 'privy-client',
+      EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY: 'magic-publishable',
+      EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI: 'mogate-ua://magic-oauth',
       EXPO_API_BASE: 'http://localhost:4000'
     });
 
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain('[OK] EIP-7702 signer: privy is product-enabled');
+    expect(result.stdout).toContain('[OK] EIP-7702 signer: magic is product-enabled');
     expect(result.stdout).not.toContain('Particle RN Auth is a probe');
   });
 
-  it('passes Mainnet UA preflight when Particle and Privy are configured', () => {
+  it('passes Mainnet UA preflight when Particle and Magic are configured', () => {
     const result = runPreflight({
       EXPO_PUBLIC_PARTICLE_PROJECT_ID: 'particle-project',
       EXPO_PUBLIC_PARTICLE_CLIENT_KEY: 'particle-client',
       EXPO_PUBLIC_PARTICLE_APP_ID: 'particle-app',
-      EXPO_PUBLIC_PRIVY_APP_ID: 'privy-app',
-      EXPO_PUBLIC_PRIVY_CLIENT_ID: 'privy-client',
+      EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY: 'magic-publishable',
+      EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI: 'mogate-ua://magic-oauth',
       EXPO_API_BASE: 'http://localhost:4000'
     });
 

@@ -31,12 +31,12 @@ export type MobileAppController = AppScreenContext & {
 
 export function useMobileAppController({
   networkMode,
-  privyAdapter,
+  magicAdapter,
   profile,
   setNetworkMode
 }: {
   networkMode: AppNetworkMode;
-  privyAdapter?: WalletAdapter | null;
+  magicAdapter?: WalletAdapter | null;
   profile: RuntimeNetworkProfile;
   setNetworkMode: (mode: AppNetworkMode) => void;
 }): MobileAppController {
@@ -46,7 +46,7 @@ export function useMobileAppController({
     status: 'idle',
     message: null
   });
-  const wallet = useUniversalWallet({ privyAdapter });
+  const wallet = useUniversalWallet({ magicAdapter });
   const balance = useBalance();
   const catalogue = useGiftcardCatalogue(profile);
   const topUpSheet = useTopUpSheet();

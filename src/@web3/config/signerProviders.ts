@@ -14,19 +14,19 @@ export type SignerProviderInfo = {
 export const SIGNER_PROVIDER_INFO: Record<WalletStack, SignerProviderInfo> = {
   privy: {
     label: 'Privy embedded wallet',
-    readiness: 'ready',
+    readiness: 'planned',
     authSurface: 'Email, social, or app-linked embedded EOA',
     authorizationApi: 'useSign7702Authorization().signAuthorization()',
-    productEnabled: true,
-    setupNote: 'Use one Privy app across web and mobile, with embedded Ethereum create-on-login enabled, if the same login must keep the same EOA.'
+    productEnabled: false,
+    setupNote: 'Privy remains installed for migration reference, but this build mounts Magic as the active embedded EOA provider.'
   },
   magic: {
     label: 'Magic embedded wallet',
-    readiness: 'blocked',
-    authSurface: 'Magic RN Expo embedded EOA reference',
+    readiness: 'ready',
+    authSurface: 'Google OAuth Magic RN Expo embedded EOA',
     authorizationApi: 'magic.wallet.sign7702Authorization()',
-    productEnabled: false,
-    setupNote: 'Magic packages are intentionally not bundled in the default app because they introduce duplicate native modules on Expo SDK 56. Re-enable only in a separate Magic experiment or after the packages align.'
+    productEnabled: true,
+    setupNote: 'Magic creates a new provider-owned embedded EOA. Configure the Magic Google OAuth client and redirect URI before enabling user sends.'
   },
   dynamic: {
     label: 'Dynamic WaaS',

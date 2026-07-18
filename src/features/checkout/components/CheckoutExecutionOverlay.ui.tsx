@@ -138,7 +138,7 @@ function PaymentProgress({
   const steps = paymentMode === 'ua7702'
     ? [
         { id: 'routing', label: 'Route stablecoins', detail: 'Particle is preparing USDC or USDT liquidity and destination gas.' },
-        { id: 'authorizing', label: 'Authorize account', detail: 'Privy confirms the inline EIP-7702 authorization and UA root hash.' },
+        { id: 'authorizing', label: 'Authorize account', detail: 'Magic confirms the inline EIP-7702 authorization and UA root hash.' },
         { id: 'submitting', label: 'Submit checkout', detail: 'Particle is sending the Universal Transaction to Arbitrum One.' },
         { id: 'minting', label: 'Mint giftcard', detail: 'The funded gateway is finalizing the giftcard NFT.' },
         { id: 'reconciling', label: 'Sync inventory', detail: 'Mogate is reconciling the Particle transaction and minted token.' }

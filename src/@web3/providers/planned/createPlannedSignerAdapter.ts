@@ -1,10 +1,10 @@
 import type { WalletAdapter, WalletSnapshot, WalletStack } from '@/@web3/types/wallet';
 
-type PlannedStack = Extract<WalletStack, 'dynamic' | 'magic' | 'particle'>;
+type PlannedStack = Extract<WalletStack, 'dynamic' | 'particle' | 'privy'>;
 
 const PROVIDER_COPY: Record<PlannedStack, string> = {
-  magic:
-    'Magic is a reference signer for Particle UA EIP-7702, but its Expo RN packages are not installed in the default product app until the native dependency tree is Expo SDK 56 clean.',
+  privy:
+    'Privy is installed for migration reference, but Magic is the active embedded EOA provider in this build.',
   dynamic:
     'Dynamic WaaS is planned for this build. Add Dynamic RN client/WaaS and map waasConnector.signAuthorization() into the WalletAdapter before enabling UA sends.',
   particle:

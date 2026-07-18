@@ -20,7 +20,7 @@ export function AppRouteFrame({
   const webNotice = Platform.OS === 'web' ? (
     <View style={styles.webNotice}>
       <Text style={styles.webNoticeText}>
-        Web mode is for UI review only. Native Privy signing, Particle native auth, and mobile funding require an Expo development build.
+        Web mode is for UI review only. Native Magic signing, Particle UA routing, and mobile funding require an Expo development build.
       </Text>
     </View>
   ) : null;

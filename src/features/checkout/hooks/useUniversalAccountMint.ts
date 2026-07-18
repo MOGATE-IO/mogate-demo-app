@@ -234,7 +234,7 @@ export function useUniversalAccountMint(input: {
       }
       if (paymentMode === 'ua7702' && !input.adapter.sign7702Authorization) {
         throw new Error(
-          'UA EIP-7702 mint requires an embedded signer that can sign EIP-7702 authorizations. Use Privy, Magic, or Dynamic after its 7702 adapter is enabled.'
+          'UA EIP-7702 mint requires the configured Magic embedded signer to sign an EIP-7702 authorization.'
         );
       }
       if (

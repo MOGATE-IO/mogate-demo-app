@@ -50,7 +50,7 @@ const config: ExpoConfig = {
   },
   extra: {
     apiBase: process.env.EXPO_API_BASE ?? 'http://localhost:4000',
-    currentWalletStack: 'privy',
+    currentWalletStack: 'magic',
     defaultNetworkMode: 'mainnet'
   }
 };

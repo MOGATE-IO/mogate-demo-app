@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const CURRENT_WALLET_STACK = 'privy';
+const CURRENT_WALLET_STACK = 'magic';
 const API_PATHS = {
   checkoutInit: '/giftcard/checkout/init',
   checkout: '/giftcard/checkout/create',
@@ -27,9 +27,9 @@ const ACTIVE_PROFILE = {
     fundedCollection: '0x24E050f703AFC2fC0C692B343906f4995754b5C9'
   }
 };
-const PRODUCT_SIGNERS = new Set(['privy']);
+const PRODUCT_SIGNERS = new Set(['magic']);
 const BLOCKED_SIGNERS = new Map([
-  ['magic', 'Magic is reference-only and not bundled in the default Expo SDK 56 product app.'],
+  ['privy', 'Privy is installed for migration reference, but Magic is the active embedded EOA provider.'],
   ['dynamic', 'Dynamic RN WaaS connector is not wired yet.'],
   ['particle', 'Particle RN Auth is a probe and is not listed as a verified Particle UA EIP-7702 signer.']
 ]);
@@ -157,13 +157,14 @@ function buildChecks(env) {
     ? `${stack} is product-enabled for Particle UA EIP-7702 in-place sends.`
     : BLOCKED_SIGNERS.get(stack) ?? `${stack} is not product-enabled.`;
   const signerProjectReady =
-    stack !== 'privy' ||
-    (hasValue(env.EXPO_PUBLIC_PRIVY_APP_ID) && hasValue(env.EXPO_PUBLIC_PRIVY_CLIENT_ID));
+    stack === 'magic' &&
+    hasValue(env.EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY) &&
+    hasValue(env.EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI);
   const signerProjectDetail =
-    stack === 'privy'
+    stack === 'magic'
       ? signerProjectReady
-        ? 'Privy app ID and client ID are configured.'
-        : 'Fill EXPO_PUBLIC_PRIVY_APP_ID and EXPO_PUBLIC_PRIVY_CLIENT_ID.'
+        ? 'Magic publishable key and Google redirect URI are configured.'
+        : 'Fill EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY and EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI.'
       : `${stack} is gated by the signer check before provider project config matters.`;
 
   const chainReady = PUBLIC_PARTICLE_UA_CHAIN_IDS.has(targetChainId);

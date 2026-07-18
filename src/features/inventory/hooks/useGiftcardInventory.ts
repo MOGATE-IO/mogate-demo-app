@@ -6,6 +6,7 @@ import {
   generateProgrammablePaymentCode,
   hasProgrammablePaymentCodePreset
 } from '@/features/inventory/services/programmablePaymentCode';
+import { pinCommerceCodeEnvelope } from '@/features/inventory/services/commerceCodeStorage';
 import {
   loadGiftcardInventory,
   type GiftcardInventoryItem
@@ -130,7 +131,7 @@ export function useGiftcardInventory({
 
   const createPaymentCode = useCallback(async (
     item: GiftcardInventoryItem,
-    options?: { expirySeconds?: number; ua7702?: boolean }
+    options?: { expirySeconds?: number; recipientAddress?: string; ua7702?: boolean }
   ) => {
     if (!ownerAddress) throw new Error('Connect the owning EVM wallet first.');
     if (!wallet) throw new Error('The connected wallet cannot sign payment codes.');
@@ -138,14 +139,20 @@ export function useGiftcardInventory({
     setGeneratingCodeId(item.id);
     setLastError(null);
     try {
-      return await generateProgrammablePaymentCode({
+      const generated = await generateProgrammablePaymentCode({
         expirySeconds: options?.expirySeconds,
         item,
         ownerAddress,
         profile,
+        recipientAddress: options?.recipientAddress,
         ua7702: options?.ua7702 ?? false,
         wallet
       });
+      if (!options?.recipientAddress?.trim()) {
+        return { ...generated, cid: null };
+      }
+      const pinned = await pinCommerceCodeEnvelope({ envelope: generated.envelope, profile });
+      return { ...generated, cid: pinned.cid, ipfsUri: pinned.uri };
     } catch (error) {
       setLastError(toErrorMessage(error));
       throw error;

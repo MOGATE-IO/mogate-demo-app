@@ -22,20 +22,17 @@ import {
 import { summarizePrivyIdentity } from '../src/@web3/providers/privy/privyIdentity';
 
 describe('Particle UA EIP-7702 product invariants', () => {
-  it('enables only native-clean embedded EIP-7702 signers for product sends', () => {
-    expect(isProductEip7702Signer('privy')).toBe(true);
-    expect(isProductEip7702Signer('magic')).toBe(false);
+  it('enables Magic as the embedded EIP-7702 signer for product sends', () => {
+    expect(isProductEip7702Signer('privy')).toBe(false);
+    expect(isProductEip7702Signer('magic')).toBe(true);
     expect(isProductEip7702Signer('dynamic')).toBe(false);
     expect(isProductEip7702Signer('particle')).toBe(false);
-    expect(SIGNER_PROVIDER_INFO.privy.authorizationApi).toBe(
-      'useSign7702Authorization().signAuthorization()'
-    );
+    expect(SIGNER_PROVIDER_INFO.magic.authorizationApi).toBe('magic.wallet.sign7702Authorization()');
   });
 
-  it('keeps reference-only Magic out of product sends', () => {
-    expect(SIGNER_PROVIDER_INFO.magic.readiness).toBe('blocked');
-    expect(SIGNER_PROVIDER_INFO.magic.productEnabled).toBe(false);
-    expect(SIGNER_PROVIDER_INFO.magic.authorizationApi).toBe('magic.wallet.sign7702Authorization()');
+  it('keeps Privy out of product sends after the Magic provider migration', () => {
+    expect(SIGNER_PROVIDER_INFO.privy.readiness).toBe('planned');
+    expect(SIGNER_PROVIDER_INFO.privy.productEnabled).toBe(false);
   });
 
   it('keeps Particle Auth probe out of the product signer path', () => {
@@ -46,7 +43,7 @@ describe('Particle UA EIP-7702 product invariants', () => {
 
   it('surfaces product blockers before minting', () => {
     const checks = Object.fromEntries(
-      getProductReadinessChecks('privy').map((check) => [check.id, check])
+      getProductReadinessChecks('magic').map((check) => [check.id, check])
     );
 
     expect(checks['particle-config']?.status).toBe('blocked');

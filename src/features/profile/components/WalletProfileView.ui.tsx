@@ -296,7 +296,7 @@ function providerName(loginMethod?: string | null) {
   if (loginMethod.includes('twitter')) return 'X';
   if (loginMethod.includes('apple')) return 'Apple';
   if (loginMethod.includes('email')) return 'Email';
-  return 'Privy';
+  return 'Magic';
 }
 
 const styles = StyleSheet.create({

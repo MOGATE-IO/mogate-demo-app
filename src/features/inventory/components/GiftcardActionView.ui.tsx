@@ -41,11 +41,13 @@ export function GiftcardActionView({
   claimedPinCode,
   claiming,
   copied,
+  copiedFullPaymentCode,
   error,
   generatingPaymentCode,
   item,
   onBack,
   onClaim,
+  onCopyFullPaymentCode,
   onCopyPaymentCode,
   onGeneratePaymentCode,
   onOpenExplorer,
@@ -54,6 +56,7 @@ export function GiftcardActionView({
   onUnwrap,
   onWithdrawAll,
   paymentCode,
+  fullPaymentCode,
   paymentCodeConfigured,
   paymentCodeExpiry,
   recipient,
@@ -67,11 +70,13 @@ export function GiftcardActionView({
   claimedPinCode: string | null;
   claiming: boolean;
   copied: boolean;
+  copiedFullPaymentCode: boolean;
   error: string | null;
   generatingPaymentCode: boolean;
   item: GiftcardInventoryItem;
   onBack: () => void;
   onClaim: () => void | Promise<void>;
+  onCopyFullPaymentCode: () => void | Promise<void>;
   onCopyPaymentCode: () => void | Promise<void>;
   onGeneratePaymentCode: () => void | Promise<void>;
   onOpenExplorer: () => void | Promise<void>;
@@ -80,6 +85,7 @@ export function GiftcardActionView({
   onUnwrap: () => void | Promise<void>;
   onWithdrawAll: () => void | Promise<void>;
   paymentCode: string | null;
+  fullPaymentCode: string | null;
   paymentCodeConfigured: boolean;
   paymentCodeExpiry: number | null;
   recipient: string;
@@ -105,10 +111,12 @@ export function GiftcardActionView({
         claimedPinCode={claimedPinCode}
         claiming={claiming}
         copied={copied}
+        copiedFullPaymentCode={copiedFullPaymentCode}
         error={error}
         generatingPaymentCode={generatingPaymentCode}
         item={item}
         onClaim={onClaim}
+        onCopyFullPaymentCode={onCopyFullPaymentCode}
         onCopyPaymentCode={onCopyPaymentCode}
         onGeneratePaymentCode={onGeneratePaymentCode}
         onOpenExplorer={onOpenExplorer}
@@ -117,6 +125,7 @@ export function GiftcardActionView({
         onUnwrap={onUnwrap}
         onWithdrawAll={onWithdrawAll}
         paymentCode={paymentCode}
+        fullPaymentCode={fullPaymentCode}
         paymentCodeConfigured={paymentCodeConfigured}
         paymentCodeExpiry={paymentCodeExpiry}
         recipient={recipient}
@@ -135,10 +144,12 @@ function ActionContent({
   claimedPinCode,
   claiming,
   copied,
+  copiedFullPaymentCode,
   error,
   generatingPaymentCode,
   item,
   onClaim,
+  onCopyFullPaymentCode,
   onCopyPaymentCode,
   onGeneratePaymentCode,
   onOpenExplorer,
@@ -147,6 +158,7 @@ function ActionContent({
   onUnwrap,
   onWithdrawAll,
   paymentCode,
+  fullPaymentCode,
   paymentCodeConfigured,
   paymentCodeExpiry,
   recipient,
@@ -355,7 +367,7 @@ function ActionContent({
           <View style={styles.iconWell}><QrCode color="#d95f14" size={21} /></View>
           <View style={styles.sectionCopy}>
             <Typography.Heading type="h5">Commerce claim code</Typography.Heading>
-            <Typography color="muted" type="body-xs">EIP-712 intent with EIP-7702 authorization.</Typography>
+            <Typography color="muted" type="body-xs">Recipient-locked EIP-712 intent with EIP-7702 authorization.</Typography>
           </View>
           <Chip color={paymentCodeConfigured ? 'accent' : 'warning'} size="sm" variant="soft">
             <Chip.Label>{paymentCodeConfigured ? '7702' : 'Setup required'}</Chip.Label>
@@ -378,6 +390,7 @@ function ActionContent({
             <Surface className="rounded-lg bg-default p-3 shadow-none" variant="transparent">
               <Typography selectable style={styles.paymentCode} type="body-xs">{paymentCode}</Typography>
             </Surface>
+            <Typography color="muted" type="body-xs">Short CID. Merchant SDK resolves the signed Arbitrum envelope from IPFS.</Typography>
             <Typography color="muted" type="body-xs">
               {paymentCodeExpiry ? `Expires ${new Date(paymentCodeExpiry * 1000).toLocaleTimeString()}` : 'No expiry'}
             </Typography>
@@ -385,11 +398,30 @@ function ActionContent({
               {copied ? <Check color="#23845b" size={18} /> : <Copy color="#52525b" size={18} />}
               <Button.Label>{copied ? 'Code copied' : 'Copy code'}</Button.Label>
             </Button>
+            {fullPaymentCode ? (
+              <Button className="w-full rounded-lg" onPress={onCopyFullPaymentCode} variant="ghost">
+                {copiedFullPaymentCode ? <Check color="#23845b" size={18} /> : <Copy color="#52525b" size={18} />}
+                <Button.Label>{copiedFullPaymentCode ? 'Full code copied' : 'Copy full code'}</Button.Label>
+              </Button>
+            ) : null}
           </>
         ) : paymentCodeConfigured ? (
-          <Typography color="muted" type="body-sm">
-            Sign the Commerce Code intent and a Mogate7702 account authorization. Generating the code costs no gas; the merchant submits both when consuming it.
-          </Typography>
+          <>
+            <Typography color="muted" type="body-sm">
+              A public CID is safe only when it is locked to the recipient wallet. One signature creates both the short CID and a full fallback code.
+            </Typography>
+            <TextField isInvalid={Boolean(error)}>
+              <Label>Recipient wallet</Label>
+              <Input
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="rounded-lg font-mono"
+                onChangeText={onRecipientChange}
+                placeholder="0x recipient address"
+                value={recipient}
+              />
+            </TextField>
+          </>
         ) : (
           <Typography color="muted" type="body-sm">
             Mogate7702Account and the Commerce Code gateway are not deployed on {item.networkLabel} yet. Generation stays disabled until their addresses are configured.
@@ -399,7 +431,7 @@ function ActionContent({
         {!paymentCode ? (
           <Button
             className="w-full rounded-lg"
-            isDisabled={!paymentCodeConfigured || generatingPaymentCode}
+            isDisabled={!paymentCodeConfigured || !recipient.trim() || generatingPaymentCode}
             onPress={onGeneratePaymentCode}
             variant="primary"
           >
@@ -408,7 +440,7 @@ function ActionContent({
               {generatingPaymentCode
                 ? 'Waiting for signatures'
                 : paymentCodeConfigured
-                  ? 'Generate claim code'
+                  ? 'Generate locked claim code'
                   : 'Mainnet setup required'}
             </Button.Label>
           </Button>

@@ -45,6 +45,10 @@ export const MOBILE_ENV = {
     appId: readEnv('EXPO_PUBLIC_PRIVY_APP_ID'),
     clientId: readEnv('EXPO_PUBLIC_PRIVY_CLIENT_ID')
   },
+  magic: {
+    publishableKey: readEnv('EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY'),
+    googleRedirectUri: readEnv('EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI')
+  },
   dynamic: {
     environmentId: readEnv('EXPO_PUBLIC_DYNAMIC_ENVIRONMENT_ID')
   },
@@ -65,4 +69,8 @@ export const MOBILE_ENV = {
 
 export function hasPrivyConfig() {
   return Boolean(MOBILE_ENV.privy.appId && MOBILE_ENV.privy.clientId);
+}
+
+export function hasMagicConfig() {
+  return Boolean(MOBILE_ENV.magic.publishableKey && MOBILE_ENV.magic.googleRedirectUri);
 }

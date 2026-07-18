@@ -2,9 +2,9 @@ import { isPublicParticleUaChain } from '@/config/contracts';
 import {
   getDefaultNetworkProfile,
   hasParticleProjectConfig,
-  hasPrivyProfileConfig,
   type RuntimeNetworkProfile
 } from '@/config/networkProfiles';
+import { hasMagicConfig } from '@/config/env';
 import { describeParticlePrimaryAssetConfig } from '@/config/particleUaSupport';
 import { getSignerProviderInfo, isProductEip7702Signer } from '@/@web3/config/signerProviders';
 import type { WalletStack } from '@/@web3/types/wallet';
@@ -37,7 +37,7 @@ export function getProductReadinessChecks(
     profile.gateway.version === 'signed-v1' || profile.gateway.version === 'signed-v2'
         ? isAddress(profile.gateway.signedAddress) && isAddress(profile.gateway.fundedCollection)
         : isAddress(profile.gateway.legacyAddress) && isAddress(profile.gateway.legacyCollection);
-  const signerConfigReady = stack !== 'privy' || hasPrivyProfileConfig(profile);
+  const signerConfigReady = stack === 'magic' && hasMagicConfig();
 
   return [
     {
@@ -63,13 +63,13 @@ export function getProductReadinessChecks(
     {
       id: 'signer-config',
       label: 'Signer project',
-      status: signerConfigReady ? (stack === 'privy' ? 'ready' : 'idle') : 'blocked',
+      status: signerConfigReady ? 'ready' : 'blocked',
       detail:
-        stack === 'privy'
-          ? hasPrivyProfileConfig(profile)
-            ? 'Privy app ID and client ID are configured.'
-            : 'Fill EXPO_PUBLIC_PRIVY_APP_ID and EXPO_PUBLIC_PRIVY_CLIENT_ID.'
-          : `${provider.label} is gated by signer readiness before provider project config matters.`
+        stack === 'magic'
+          ? signerConfigReady
+            ? 'Magic publishable key and Google redirect URI are configured.'
+            : 'Fill EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY and EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI.'
+          : `${provider.label} is not the mounted product signer.`
     },
     {
       id: 'chain',

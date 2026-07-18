@@ -6,18 +6,18 @@ import type { WalletAdapter, WalletStack } from '@/@web3/types/wallet';
 import { toErrorMessage } from '@/utils/errors';
 
 type UseUniversalWalletOptions = {
-  privyAdapter?: WalletAdapter | null;
+  magicAdapter?: WalletAdapter | null;
 };
 
 export function useUniversalWallet(options: UseUniversalWalletOptions = {}) {
   const { selectedStack, setSelectedStack, setSnapshot, snapshot } = useWalletConnectionStore();
 
   const adapter = useMemo<WalletAdapter | null>(() => {
-    if (selectedStack === 'magic' || selectedStack === 'dynamic' || selectedStack === 'particle') {
-      return createPlannedSignerAdapter(selectedStack);
+    if (selectedStack === 'magic') {
+      return options.magicAdapter ?? null;
     }
-    return options.privyAdapter ?? null;
-  }, [options.privyAdapter, selectedStack]);
+    return createPlannedSignerAdapter(selectedStack);
+  }, [options.magicAdapter, selectedStack]);
 
   const switchStack = useCallback(
     (stack: WalletStack) => {

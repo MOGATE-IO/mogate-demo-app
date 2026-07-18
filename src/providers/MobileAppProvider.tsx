@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type PropsWithChildren } from 'react';
 
-import { PrivyBridge } from '@/@web3/providers/privy/PrivyBridge';
+import { MagicBridge } from '@/@web3/providers/magic/MagicBridge';
 import { createSimulatorPreviewAdapter } from '@/@web3/providers/preview/simulatorPreviewAdapter';
 import type { WalletAdapter } from '@/@web3/types/wallet';
 import { MOBILE_ENV } from '@/config/env';
@@ -27,37 +27,37 @@ export function MobileAppProvider({ children }: PropsWithChildren) {
   const profile = getNetworkProfile(networkMode);
 
   return (
-    <PrivyBridge profile={profile}>
-      {(privyAdapter) => (
+    <MagicBridge profile={profile}>
+      {(magicAdapter) => (
         <MobileAppControllerProvider
           key={profile.mode}
           networkMode={networkMode}
-          privyAdapter={simulatorPreviewAdapter ?? privyAdapter}
+          magicAdapter={simulatorPreviewAdapter ?? magicAdapter}
           profile={profile}
           setNetworkMode={setNetworkMode}
         >
           {children}
         </MobileAppControllerProvider>
       )}
-    </PrivyBridge>
+    </MagicBridge>
   );
 }
 
 function MobileAppControllerProvider({
   children,
   networkMode,
-  privyAdapter,
+  magicAdapter,
   profile,
   setNetworkMode
 }: PropsWithChildren<{
   networkMode: AppNetworkMode;
-  privyAdapter?: WalletAdapter | null;
+  magicAdapter?: WalletAdapter | null;
   profile: ReturnType<typeof getNetworkProfile>;
   setNetworkMode: (mode: AppNetworkMode) => void;
 }>) {
   const controller = useMobileAppController({
     networkMode,
-    privyAdapter,
+    magicAdapter,
     profile,
     setNetworkMode
   });

@@ -19,8 +19,10 @@ export function useGiftcardAction({
   const [claimedPinCode, setClaimedPinCode] = useState<string | null>(null);
   const [claimComplete, setClaimComplete] = useState(Boolean(item.giftCode));
   const [paymentCode, setPaymentCode] = useState<string | null>(null);
+  const [fullPaymentCode, setFullPaymentCode] = useState<string | null>(null);
   const [paymentCodeExpiry, setPaymentCodeExpiry] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedFullPaymentCode, setCopiedFullPaymentCode] = useState(false);
 
   const send = useCallback(async () => {
     setError(null);
@@ -68,12 +70,21 @@ export function useGiftcardAction({
   const generatePaymentCode = useCallback(async () => {
     setError(null);
     setCopied(false);
+    setCopiedFullPaymentCode(false);
     try {
+      if (!recipient.trim()) {
+        throw new Error('Enter the recipient wallet before publishing a Commerce Code CID.');
+      }
       const result = await inventory.createPaymentCode(item, {
         expirySeconds: 15 * 60,
+        recipientAddress: recipient.trim(),
         ua7702: true
       });
-      setPaymentCode(result.code);
+      if (!result.cid) {
+        throw new Error('Commerce Code CID was not returned by the pinning service.');
+      }
+      setPaymentCode(result.cid);
+      setFullPaymentCode(result.code);
       setPaymentCodeExpiry(result.expiresAtUnixSeconds);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Payment-code generation failed.');
@@ -86,6 +97,12 @@ export function useGiftcardAction({
     setCopied(true);
   }, [paymentCode]);
 
+  const copyFullPaymentCode = useCallback(async () => {
+    if (!fullPaymentCode) return;
+    await Clipboard.setStringAsync(fullPaymentCode);
+    setCopiedFullPaymentCode(true);
+  }, [fullPaymentCode]);
+
   return {
     claim,
     claimComplete,
@@ -93,11 +110,14 @@ export function useGiftcardAction({
     claimedPinCode,
     claiming: inventory.unwrappingId === item.id,
     copied,
+    copiedFullPaymentCode,
+    copyFullPaymentCode,
     copyPaymentCode,
     error,
     generatePaymentCode,
     generatingPaymentCode: inventory.generatingCodeId === item.id,
     paymentCode,
+    fullPaymentCode,
     paymentCodeConfigured: inventory.paymentCodeConfigured,
     paymentCodeExpiry,
     recipient,

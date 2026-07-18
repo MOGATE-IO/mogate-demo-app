@@ -29,12 +29,14 @@ export function GiftcardActionScreen({
       claimedPinCode={state.claimedPinCode}
       claiming={state.claiming}
       copied={state.copied}
+      copiedFullPaymentCode={state.copiedFullPaymentCode}
       error={state.error}
       generatingPaymentCode={state.generatingPaymentCode}
       item={item}
       onBack={onBack}
       onClaim={state.claim}
       onCopyPaymentCode={state.copyPaymentCode}
+      onCopyFullPaymentCode={state.copyFullPaymentCode}
       onGeneratePaymentCode={state.generatePaymentCode}
       onOpenExplorer={() => Linking.openURL(explorerUrl)}
       onRecipientChange={state.setRecipient}
@@ -42,6 +44,7 @@ export function GiftcardActionScreen({
       onUnwrap={state.unwrap}
       onWithdrawAll={state.withdrawAll}
       paymentCode={state.paymentCode}
+      fullPaymentCode={state.fullPaymentCode}
       paymentCodeConfigured={state.paymentCodeConfigured}
       paymentCodeExpiry={state.paymentCodeExpiry}
       recipient={state.recipient}

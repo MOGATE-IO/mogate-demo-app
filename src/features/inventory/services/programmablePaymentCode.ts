@@ -78,7 +78,9 @@ type PaymentCodeAuthorization = {
 export type ProgrammablePaymentCodeResult = {
   authorization7702Included: boolean;
   code: string;
+  envelope: Record<string, unknown>;
   expiresAtUnixSeconds: number | null;
+  recipient: HexString;
 };
 
 export async function generateProgrammablePaymentCode({
@@ -86,6 +88,7 @@ export async function generateProgrammablePaymentCode({
   item,
   ownerAddress,
   profile,
+  recipientAddress,
   ua7702 = false,
   wallet
 }: {
@@ -93,6 +96,7 @@ export async function generateProgrammablePaymentCode({
   item: GiftcardInventoryItem;
   ownerAddress: string;
   profile: RuntimeNetworkProfile;
+  recipientAddress?: string;
   ua7702?: boolean;
   wallet: WalletAdapter;
 }): Promise<ProgrammablePaymentCodeResult> {
@@ -106,6 +110,9 @@ export async function generateProgrammablePaymentCode({
   }
 
   const holder = getAddress(ownerAddress);
+  const recipient: HexString = recipientAddress?.trim()
+    ? getAddress(recipientAddress.trim()) as HexString
+    : ZeroAddress as HexString;
   const now = Math.floor(Date.now() / 1000);
   const expiry = expirySeconds > 0 ? BigInt(now + expirySeconds) : 0n;
   const secret = hexlify(randomBytes(32)) as HexString;
@@ -113,7 +120,7 @@ export async function generateProgrammablePaymentCode({
     collection: getAddress(item.collection),
     tokenId: BigInt(item.tokenId),
     holder,
-    recipient: ZeroAddress,
+    recipient,
     nonce: BigInt(Date.now()),
     expiry,
     chainId: BigInt(profile.ua.targetChainId),
@@ -165,7 +172,9 @@ export async function generateProgrammablePaymentCode({
   return {
     authorization7702Included: Boolean(authorization7702),
     code: encodePaymentCodeEnvelope(preset.codePrefix, envelope),
-    expiresAtUnixSeconds: expiry > 0n ? Number(expiry) : null
+    envelope,
+    expiresAtUnixSeconds: expiry > 0n ? Number(expiry) : null,
+    recipient
   };
 }
 
