@@ -3,15 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Button, Separator, Typography } from 'heroui-native';
 import {
   Bell,
-  BookOpenText,
   ChevronRight,
-  CircleHelp,
   Globe2,
   LockKeyhole,
   Settings,
-  ShieldCheck,
   UserRound,
-  UserRoundCog,
   X
 } from 'lucide-react-native';
 import {
@@ -37,11 +33,7 @@ type DrawerMenuItem = {
 
 const MENU_ITEMS: DrawerMenuItem[] = [
   { id: 'notifications', label: 'Notifications', detail: 'Payment and giftcard updates', Icon: Bell },
-  { id: 'account-settings', label: 'Account settings', detail: 'Identity and preferences', Icon: UserRoundCog },
-  { id: 'security', label: 'Security', detail: 'Wallet and signing protection', Icon: ShieldCheck },
-  { id: 'settings', label: 'Settings', detail: 'App and network preferences', Icon: Settings },
-  { id: 'mogate-care', label: 'Mogate Care', detail: 'Help and payment support', Icon: CircleHelp },
-  { id: 'terms-privacy', label: 'Terms & privacy', detail: 'Policies and disclosures', Icon: BookOpenText }
+  { id: 'settings', label: 'Settings', detail: 'App and network preferences', Icon: Settings }
 ];
 
 export type AccountDrawerProps = {
