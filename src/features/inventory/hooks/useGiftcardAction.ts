@@ -89,7 +89,7 @@ export function useGiftcardAction({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Payment-code generation failed.');
     }
-  }, [inventory, item]);
+  }, [inventory, item, recipient]);
 
   const copyPaymentCode = useCallback(async () => {
     if (!paymentCode) return;

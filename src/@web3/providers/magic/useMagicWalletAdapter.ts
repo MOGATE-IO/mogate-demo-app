@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type ComponentType } from 'react';
+import { useCallback, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { OAuthExtension } from '@magic-ext/react-native-expo-oauth';
 import { Magic } from '@magic-sdk/react-native-expo';
@@ -58,6 +58,7 @@ function snapshotFromMagicInfo(info: any): WalletSnapshot {
 export function useMagicWalletAdapter(profile: RuntimeNetworkProfile): {
   adapter: WalletAdapter | null;
   relayer: ComponentType<{ backgroundColor?: string }> | null;
+  relayerInteractive: boolean;
 } {
   const publishableKey = MOBILE_ENV.magic.publishableKey;
   const redirectURI = MOBILE_ENV.magic.googleRedirectUri;
@@ -71,6 +72,22 @@ export function useMagicWalletAdapter(profile: RuntimeNetworkProfile): {
       extensions: [new OAuthExtension()]
     });
   }, [profile.ua.rpcUrl, profile.ua.targetChainId, publishableKey]);
+  const activeRelayerRequests = useRef(0);
+  const [relayerInteractive, setRelayerInteractive] = useState(false);
+
+  const withRelayerInteraction = useCallback(async <Result,>(
+    operation: () => Promise<Result>
+  ): Promise<Result> => {
+    activeRelayerRequests.current += 1;
+    setRelayerInteractive(true);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    try {
+      return await operation();
+    } finally {
+      activeRelayerRequests.current = Math.max(0, activeRelayerRequests.current - 1);
+      if (activeRelayerRequests.current === 0) setRelayerInteractive(false);
+    }
+  }, []);
 
   const connect = useCallback(async (): Promise<WalletSnapshot> => {
     if (!magic) {
@@ -92,14 +109,14 @@ export function useMagicWalletAdapter(profile: RuntimeNetworkProfile): {
           'EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI is required before Google login can start.'
         );
       }
-      await magic.oauth.loginWithPopup({
+      await withRelayerInteraction(() => magic.oauth.loginWithPopup({
         provider: 'google',
         redirectURI,
         scope: ['openid', 'email', 'profile']
-      });
+      }));
     }
     return snapshotFromMagicInfo(await magic.user.getInfo());
-  }, [magic, redirectURI]);
+  }, [magic, redirectURI, withRelayerInteraction]);
 
   const refresh = useCallback(async () => {
     if (!magic || !(await magic.user.isLoggedIn())) {
@@ -127,27 +144,27 @@ export function useMagicWalletAdapter(profile: RuntimeNetworkProfile): {
         const info = await magic.user.getInfo();
         const address = magicAddress(info);
         if (!address) throw new Error('Magic embedded EVM wallet is not ready.');
-        return magic.rpcProvider.request({
+        return withRelayerInteraction(() => magic.rpcProvider.request({
           method: 'personal_sign',
           params: [message, address]
-        }) as Promise<HexString>;
+        }) as Promise<HexString>);
       },
       async signTypedData(typedData: string) {
         const info = await magic.user.getInfo();
         const address = magicAddress(info);
         if (!address) throw new Error('Magic embedded EVM wallet is not ready.');
-        return magic.rpcProvider.request({
+        return withRelayerInteraction(() => magic.rpcProvider.request({
           method: 'eth_signTypedData_v4',
           params: [address, typedData]
-        }) as Promise<HexString>;
+        }) as Promise<HexString>);
       },
       async sign7702Authorization(authorization: Eip7702AuthorizationRequest) {
         try {
-          const result = await magic.wallet.sign7702Authorization({
+          const result = await withRelayerInteraction(() => magic.wallet.sign7702Authorization({
             contractAddress: authorization.address,
             chainId: Number(authorization.chainId),
             nonce: authorization.nonce == null ? undefined : Number(authorization.nonce)
-          });
+          }));
           return { signature: normalize7702Signature(result) };
         } catch (error) {
           throw new CapabilityBlockedError(
@@ -158,7 +175,7 @@ export function useMagicWalletAdapter(profile: RuntimeNetworkProfile): {
         }
       }
     };
-  }, [connect, magic, refresh]);
+  }, [connect, magic, refresh, withRelayerInteraction]);
 
-  return { adapter, relayer: magic?.Relayer ?? null };
+  return { adapter, relayer: magic?.Relayer ?? null, relayerInteractive };
 }

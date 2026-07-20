@@ -38,7 +38,15 @@ export default function GiftcardActionRoute() {
 
   return (
     <AppRouteFrame scroll={false}>
-      <GiftcardActionScreen action={action} context={context} item={item} onBack={() => router.back()} />
+      <GiftcardActionScreen
+        action={action}
+        context={context}
+        item={item}
+        onBack={() => router.dismissTo({
+          pathname: '/giftcard/[tokenId]',
+          params: { tokenId: item.tokenId }
+        })}
+      />
     </AppRouteFrame>
   );
 }
