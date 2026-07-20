@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   Accordion,
   Button,
@@ -16,8 +16,8 @@ import {
   Tabs,
   TextArea,
   TextField,
-  Typography
-} from 'heroui-native';
+  Typography,
+} from "heroui-native";
 import {
   ArrowRight,
   AtSign,
@@ -25,38 +25,36 @@ import {
   CircleDollarSign,
   LockKeyhole,
   Mail,
-  Wallet
-} from 'lucide-react-native';
-import { ScrollView, StyleSheet, View } from 'react-native';
+  Wallet,
+} from "lucide-react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
-import EthereumLogo from '@assets/+logos/ethereum-eth-logo.svg';
-import ArbitrumLogo from '@assets/images/network/arbitrum-arb-logo.svg';
-import FhenixLogo from '@assets/external/fhenix-full-logo-dark.svg';
-import { PageHeader } from '@/components/PageHeader.ui';
-import { StatusPill } from '@/components/StatusPill';
-import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
-import { CheckoutPaymentSheet } from '@/features/checkout/components/CheckoutPaymentSheet.ui';
-import type { UniversalAccountMintState } from '@/features/checkout/hooks/useUniversalAccountMint';
+import EthereumLogo from "@assets/+logos/ethereum-eth-logo.svg";
+import ArbitrumLogo from "@assets/images/network/arbitrum-arb-logo.svg";
+import FhenixLogo from "@assets/external/fhenix-full-logo-dark.svg";
+import { PageHeader } from "@/components/PageHeader.ui";
+import { StatusPill } from "@/components/StatusPill";
+import type { RuntimeNetworkProfile } from "@/config/networkProfiles";
+import { CheckoutPaymentSheet } from "@/features/checkout/components/CheckoutPaymentSheet.ui";
+import type { UniversalAccountMintState } from "@/features/checkout/hooks/useUniversalAccountMint";
 import {
   formatUsdAmount,
   type StablecoinPortfolio,
-  type StablecoinSymbol
-} from '@/features/checkout/services/paymentBalances';
-import { GiftcardComponent } from '@/features/giftcard/components/GiftcardComponent';
-import type {
-  CheckoutReceiverType,
-  CheckoutSelection
-} from '@/screens/types';
-import { prettyJson, shortenAddress } from '@/utils/format';
-import { formatRegionLabel } from '@/utils/regions';
+  type StablecoinSymbol,
+} from "@/features/checkout/services/paymentBalances";
+import { GiftcardComponent } from "@/features/giftcard/components/GiftcardComponent";
+import type { CheckoutReceiverType, CheckoutSelection } from "@/screens/types";
+import { prettyJson, shortenAddress } from "@/utils/format";
+import { formatRegionLabel } from "@/utils/regions";
 
 export type MintCheckoutViewProps = {
   checkoutSelection: CheckoutSelection | null;
   mint: UniversalAccountMintState;
+  mintBlockedReason: string | null;
   profile: RuntimeNetworkProfile;
   ownerAddress: string;
   canMint: boolean;
-  balanceStatus: 'idle' | 'loading' | 'ready' | 'error';
+  balanceStatus: "idle" | "loading" | "ready" | "error";
   balanceErrors: string[];
   portfolio: StablecoinPortfolio;
   targetNativeAmount: number;
@@ -74,7 +72,7 @@ export type MintCheckoutViewProps = {
   onSelectAmount: (amount: number) => void;
   onSelectRegion: (region: string) => void;
   onSetCouponCode: (couponCode: string) => void;
-  onSetGiftcardMode: (giftcardMode: CheckoutSelection['giftcardMode']) => void;
+  onSetGiftcardMode: (giftcardMode: CheckoutSelection["giftcardMode"]) => void;
   onSetReceiverAddress: (receiver: string) => void;
   onSetReceiverContact: (receiver: string) => void;
   onSetReceiverType: (receiverType: CheckoutReceiverType) => void;
@@ -90,6 +88,7 @@ export function MintCheckoutView({
   canMint,
   checkoutSelection,
   mint,
+  mintBlockedReason,
   onBack,
   onCheckoutComplete,
   onRefreshBalances,
@@ -113,16 +112,18 @@ export function MintCheckoutView({
   receiverValid,
   regionOpen,
   regionOptions,
-  targetNativeAmount
+  targetNativeAmount,
 }: MintCheckoutViewProps) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [selectedStablecoin, setSelectedStablecoin] = useState<StablecoinSymbol>('USDC');
+  const [selectedStablecoin, setSelectedStablecoin] =
+    useState<StablecoinSymbol>("USDC");
   const merchant = checkoutSelection?.merchant;
   const amount = checkoutSelection?.amount ?? 0;
-  const selectedRegion = checkoutSelection?.region ?? regionOptions[0] ?? 'GLOBAL';
+  const selectedRegion =
+    checkoutSelection?.region ?? regionOptions[0] ?? "GLOBAL";
   const regionValue = {
     label: formatRegionLabel(selectedRegion),
-    value: selectedRegion
+    value: selectedRegion,
   };
 
   useEffect(() => () => mint.resetCheckoutFlow(), [mint.resetCheckoutFlow]);
@@ -136,8 +137,8 @@ export function MintCheckoutView({
             mint.resetCheckoutFlow();
             onBack();
           }}
-          subtitle={`${profile.mode === 'testnet' ? 'Testnet' : 'Mainnet'} / ${profile.gatewayExecutionMode === 'ua7702' ? 'Particle UA' : 'direct USDC'} / ${profile.ua.chainLabel}`}
-          title={merchant?.name ?? 'Mint checkout'}
+          subtitle={`${profile.mode === "testnet" ? "Testnet" : "Mainnet"} / ${profile.gatewayExecutionMode === "ua7702" ? "Particle UA" : "direct USDC"} / ${profile.ua.chainLabel}`}
+          title={merchant?.name ?? "Mint checkout"}
         />
       </View>
 
@@ -156,7 +157,9 @@ export function MintCheckoutView({
         <SectionHeading title="Giftcard details" />
         <Surface className="gap-4 rounded-lg border border-border bg-surface p-4 shadow-none">
           <View style={styles.fieldStack}>
-            <Typography color="muted" type="body-xs" weight="semibold">Value</Typography>
+            <Typography color="muted" type="body-xs" weight="semibold">
+              Value
+            </Typography>
             <ValueButtonList
               amount={amount}
               amounts={merchant?.availableAmounts ?? []}
@@ -167,7 +170,9 @@ export function MintCheckoutView({
           <Separator />
 
           <View style={styles.fieldStack}>
-            <Typography color="muted" type="body-xs" weight="semibold">Region</Typography>
+            <Typography color="muted" type="body-xs" weight="semibold">
+              Region
+            </Typography>
             <Select
               isOpen={regionOpen}
               onOpenChange={(open) => {
@@ -204,15 +209,18 @@ export function MintCheckoutView({
         </Surface>
 
         <SectionHeading title="Mint route" />
-        <MintRouteCard giftcardMode={checkoutSelection?.giftcardMode ?? 'funded'} profile={profile} />
+        <MintRouteCard
+          giftcardMode={checkoutSelection?.giftcardMode ?? "funded"}
+          profile={profile}
+        />
 
         <SectionHeading title="Receiver" />
         <ReceiverField
-          contact={checkoutSelection?.receiverContact ?? ''}
+          contact={checkoutSelection?.receiverContact ?? ""}
           ownerAddress={ownerAddress}
-          receiverAddress={checkoutSelection?.receiverAddress ?? ''}
+          receiverAddress={checkoutSelection?.receiverAddress ?? ""}
           receiverError={receiverError}
-          receiverType={checkoutSelection?.receiverType ?? 'wallet'}
+          receiverType={checkoutSelection?.receiverType ?? "wallet"}
           onSetReceiverAddress={onSetReceiverAddress}
           onSetReceiverContact={onSetReceiverContact}
           onSetReceiverType={onSetReceiverType}
@@ -222,11 +230,11 @@ export function MintCheckoutView({
           className="rounded-lg"
           hideSeparator
           onValueChange={(value: string | undefined) => {
-            const shouldOpen = value === 'advanced';
+            const shouldOpen = value === "advanced";
             if (shouldOpen !== advancedOpen) onToggleAdvanced();
           }}
           selectionMode="single"
-          value={advancedOpen ? 'advanced' : undefined}
+          value={advancedOpen ? "advanced" : undefined}
           variant="surface"
         >
           <Accordion.Item value="advanced">
@@ -242,15 +250,22 @@ export function MintCheckoutView({
             <Accordion.Content>
               <View style={styles.advancedBody}>
                 <View style={styles.fieldStack}>
-                  <Typography color="muted" type="body-xs" weight="semibold">Giftcard type</Typography>
+                  <Typography color="muted" type="body-xs" weight="semibold">
+                    Giftcard type
+                  </Typography>
                   <RadioGroup
                     onValueChange={(value) => {
-                      if (value === 'funded' || value === 'voucher') onSetGiftcardMode(value);
+                      if (value === "funded" || value === "voucher")
+                        onSetGiftcardMode(value);
                     }}
-                    value={checkoutSelection?.giftcardMode ?? 'funded'}
+                    value={checkoutSelection?.giftcardMode ?? "funded"}
                   >
-                    <RadioGroup.Item value="funded">Funded value</RadioGroup.Item>
-                    <RadioGroup.Item value="voucher">Encrypted voucher</RadioGroup.Item>
+                    <RadioGroup.Item value="funded">
+                      Funded value
+                    </RadioGroup.Item>
+                    <RadioGroup.Item value="voucher">
+                      Encrypted voucher
+                    </RadioGroup.Item>
                   </RadioGroup>
                 </View>
                 <Separator />
@@ -281,16 +296,24 @@ export function MintCheckoutView({
                 />
                 <Separator />
                 <View style={styles.diagnostics}>
-                  <Typography color="muted" type="body-xs" weight="semibold">Readiness</Typography>
+                  <Typography color="muted" type="body-xs" weight="semibold">
+                    Readiness
+                  </Typography>
                   {mint.gates.map((gate) => (
                     <View key={gate.id} style={styles.gate}>
                       <View style={styles.gateHeader}>
-                        <Typography style={styles.gateTitle} type="body-sm" weight="medium">
+                        <Typography
+                          style={styles.gateTitle}
+                          type="body-sm"
+                          weight="medium"
+                        >
                           {gate.label}
                         </Typography>
                         <StatusPill status={gate.status} />
                       </View>
-                      <Typography color="muted" type="body-xs">{gate.detail}</Typography>
+                      <Typography color="muted" type="body-xs">
+                        {gate.detail}
+                      </Typography>
                     </View>
                   ))}
                   <View style={styles.actions}>
@@ -303,13 +326,25 @@ export function MintCheckoutView({
                     >
                       <Button.Label>Refresh route</Button.Label>
                     </Button>
-                    <Button className="rounded-lg" onPress={mint.parseCheckout} size="sm" variant="secondary">
+                    <Button
+                      className="rounded-lg"
+                      onPress={mint.parseCheckout}
+                      size="sm"
+                      variant="secondary"
+                    >
                       <Button.Label>Parse checkout</Button.Label>
                     </Button>
                   </View>
                   {mint.uaProbe ? (
-                    <Surface className="rounded-lg bg-default p-3 shadow-none" variant="transparent">
-                      <Typography selectable style={styles.monoText} type="body-xs">
+                    <Surface
+                      className="rounded-lg bg-default p-3 shadow-none"
+                      variant="transparent"
+                    >
+                      <Typography
+                        selectable
+                        style={styles.monoText}
+                        type="body-xs"
+                      >
                         {prettyJson(mint.uaProbe)}
                       </Typography>
                     </Surface>
@@ -330,10 +365,13 @@ export function MintCheckoutView({
         </Accordion>
       </ScrollView>
 
-      <Surface className="rounded-lg border border-border bg-surface p-3 shadow-lg" style={styles.checkoutDock}>
+      <Surface
+        className="rounded-lg border border-border bg-surface p-3 shadow-lg"
+        style={styles.checkoutDock}
+      >
         <View style={styles.dockCopy}>
           <Typography color="muted" numberOfLines={1} type="body-xs">
-            {merchant?.name ?? 'Giftcard'} / total
+            {merchant?.name ?? "Giftcard"} / total
           </Typography>
           <Typography weight="bold">{formatUsdAmount(amount)}</Typography>
         </View>
@@ -355,6 +393,7 @@ export function MintCheckoutView({
         canMint={canMint}
         checkoutSelection={checkoutSelection}
         mint={mint}
+        mintBlockedReason={mintBlockedReason}
         onClose={() => setCheckoutOpen(false)}
         onComplete={() => {
           setCheckoutOpen(false);
@@ -380,7 +419,7 @@ export function MintCheckoutView({
 function ValueButtonList({
   amount,
   amounts,
-  onSelectAmount
+  onSelectAmount,
 }: {
   amount: number;
   amounts: number[];
@@ -394,15 +433,23 @@ function ValueButtonList({
           <Button
             accessibilityLabel={`Choose $${value}`}
             accessibilityState={{ selected }}
-            className={selected
-              ? 'min-w-[68px] rounded-lg border border-accent bg-accent-soft'
-              : 'min-w-[68px] rounded-lg border border-border bg-surface'}
+            className={
+              selected
+                ? "min-w-[68px] rounded-lg border border-accent bg-accent-soft"
+                : "min-w-[68px] rounded-lg border border-border bg-surface"
+            }
             key={value}
             onPress={() => onSelectAmount(value)}
             size="sm"
             variant="ghost"
           >
-            <Button.Label className={selected ? 'font-semibold text-accent' : 'font-semibold text-foreground'}>
+            <Button.Label
+              className={
+                selected
+                  ? "font-semibold text-accent"
+                  : "font-semibold text-foreground"
+              }
+            >
               ${value}
             </Button.Label>
           </Button>
@@ -414,13 +461,15 @@ function ValueButtonList({
 
 function MintRouteCard({
   giftcardMode,
-  profile
+  profile,
 }: {
-  giftcardMode: CheckoutSelection['giftcardMode'];
+  giftcardMode: CheckoutSelection["giftcardMode"];
   profile: RuntimeNetworkProfile;
 }) {
-  const ChainLogo = profile.ua.networkName.startsWith('arbitrum') ? ArbitrumLogo : EthereumLogo;
-  const encryptionActive = giftcardMode === 'voucher';
+  const ChainLogo = profile.ua.networkName.startsWith("arbitrum")
+    ? ArbitrumLogo
+    : EthereumLogo;
+  const encryptionActive = giftcardMode === "voucher";
 
   return (
     <Surface className="rounded-lg border border-border bg-surface px-4 shadow-none">
@@ -429,8 +478,12 @@ function MintRouteCard({
           <ChainLogo height={24} width={24} />
         </View>
         <View style={styles.flexCopy}>
-          <Typography type="body-sm" weight="semibold">{profile.ua.chainLabel}</Typography>
-          <Typography color="muted" type="body-xs">Target mint network</Typography>
+          <Typography type="body-sm" weight="semibold">
+            {profile.ua.chainLabel}
+          </Typography>
+          <Typography color="muted" type="body-xs">
+            Target mint network
+          </Typography>
         </View>
         <Chip color="accent" size="sm" variant="soft">
           <Chip.Label>Fixed</Chip.Label>
@@ -441,21 +494,31 @@ function MintRouteCard({
         <View style={styles.encryptionRow}>
           <View style={styles.encryptionHeader}>
             <FhenixLogo height={18} width={96} />
-            <Chip color="success" size="sm" variant="soft"><Chip.Label>Active</Chip.Label></Chip>
+            <Chip color="success" size="sm" variant="soft">
+              <Chip.Label>Active</Chip.Label>
+            </Chip>
           </View>
           <View style={styles.inlineTitle}>
             <LockKeyhole color="#e9680c" size={16} />
-            <Typography type="body-sm" weight="semibold">Encrypted voucher</Typography>
+            <Typography type="body-sm" weight="semibold">
+              Encrypted voucher
+            </Typography>
           </View>
         </View>
       ) : (
         <View style={styles.routeRow}>
           <CircleDollarSign color="#2775ca" size={22} />
           <View style={styles.flexCopy}>
-            <Typography type="body-sm" weight="semibold">USDC-backed giftcard</Typography>
-            <Typography color="muted" type="body-xs">Fixed value</Typography>
+            <Typography type="body-sm" weight="semibold">
+              USDC-backed giftcard
+            </Typography>
+            <Typography color="muted" type="body-xs">
+              Fixed value
+            </Typography>
           </View>
-          <Chip color="success" size="sm" variant="soft"><Chip.Label>Funded</Chip.Label></Chip>
+          <Chip color="success" size="sm" variant="soft">
+            <Chip.Label>Funded</Chip.Label>
+          </Chip>
         </View>
       )}
     </Surface>
@@ -470,7 +533,7 @@ function ReceiverField({
   ownerAddress,
   receiverAddress,
   receiverError,
-  receiverType
+  receiverType,
 }: {
   contact: string;
   onSetReceiverAddress: (value: string) => void;
@@ -481,17 +544,26 @@ function ReceiverField({
   receiverError: string | null;
   receiverType: CheckoutReceiverType;
 }) {
-  const walletMode = receiverType === 'wallet';
-  const label = walletMode ? 'Wallet address' : receiverType === 'email' ? 'Email address' : 'X handle';
+  const walletMode = receiverType === "wallet";
+  const label = walletMode
+    ? "Wallet address"
+    : receiverType === "email"
+      ? "Email address"
+      : "X handle";
   const placeholder = walletMode
-    ? '0x receiver address'
-    : receiverType === 'email'
-      ? 'Email delivery is currently turned off'
-      : 'X delivery is currently turned off';
+    ? "0x receiver address"
+    : receiverType === "email"
+      ? "Email delivery is currently turned off"
+      : "X delivery is currently turned off";
 
   return (
     <Surface className="gap-4 rounded-lg border border-border bg-surface p-4 shadow-none">
-      <Tabs onValueChange={(value) => onSetReceiverType(value as CheckoutReceiverType)} value={receiverType}>
+      <Tabs
+        onValueChange={(value) =>
+          onSetReceiverType(value as CheckoutReceiverType)
+        }
+        value={receiverType}
+      >
         <Tabs.List className="rounded-lg">
           <Tabs.Indicator />
           <Tabs.Trigger className="flex-1" value="wallet">
@@ -509,23 +581,31 @@ function ReceiverField({
         </Tabs.List>
       </Tabs>
 
-      <TextField isDisabled={!walletMode} isInvalid={walletMode && Boolean(receiverError)} isRequired={walletMode}>
+      <TextField
+        isDisabled={!walletMode}
+        isInvalid={walletMode && Boolean(receiverError)}
+        isRequired={walletMode}
+      >
         <Label>{label}</Label>
         <Input
           accessibilityLabel={`Giftcard receiver ${label.toLowerCase()}`}
           autoCapitalize="none"
           autoCorrect={false}
-          className={walletMode ? 'rounded-lg font-mono' : 'rounded-lg'}
-          keyboardType={receiverType === 'email' ? 'email-address' : 'default'}
-          onChangeText={walletMode ? onSetReceiverAddress : onSetReceiverContact}
+          className={walletMode ? "rounded-lg font-mono" : "rounded-lg"}
+          keyboardType={receiverType === "email" ? "email-address" : "default"}
+          onChangeText={
+            walletMode ? onSetReceiverAddress : onSetReceiverContact
+          }
           placeholder={placeholder}
           value={walletMode ? receiverAddress : contact}
         />
-        {walletMode && receiverError ? <FieldError>{receiverError}</FieldError> : null}
+        {walletMode && receiverError ? (
+          <FieldError>{receiverError}</FieldError>
+        ) : null}
         <Description>
           {walletMode
-            ? `Connected payer: ${ownerAddress ? shortenAddress(ownerAddress) : 'Unavailable'}`
-            : `${receiverType === 'email' ? 'Email' : 'X'} delivery is visible for planning and disabled in this direct testnet phase.`}
+            ? `Connected payer: ${ownerAddress ? shortenAddress(ownerAddress) : "Unavailable"}`
+            : `${receiverType === "email" ? "Email" : "X"} delivery is visible for planning and disabled in this direct testnet phase.`}
         </Description>
       </TextField>
     </Surface>
@@ -538,10 +618,15 @@ function SectionHeading({ title }: { title: string }) {
 
 function InlineAlert({ children }: { children: ReactNode }) {
   return (
-    <Surface className="rounded-lg bg-danger-soft p-3 shadow-none" variant="transparent">
+    <Surface
+      className="rounded-lg bg-danger-soft p-3 shadow-none"
+      variant="transparent"
+    >
       <View style={styles.inlineAlert}>
         <CircleAlert color="#c43d45" size={18} />
-        <Typography style={styles.alertText} type="body-sm">{children}</Typography>
+        <Typography style={styles.alertText} type="body-sm">
+          {children}
+        </Typography>
       </View>
     </Surface>
   );
@@ -551,7 +636,7 @@ function AdvancedChoice({
   disabledLabel,
   label,
   title,
-  value
+  value,
 }: {
   disabledLabel: string;
   label: string;
@@ -560,10 +645,14 @@ function AdvancedChoice({
 }) {
   return (
     <View style={styles.fieldStack}>
-      <Typography color="muted" type="body-xs" weight="semibold">{title}</Typography>
+      <Typography color="muted" type="body-xs" weight="semibold">
+        {title}
+      </Typography>
       <RadioGroup onValueChange={() => undefined} value={value}>
         <RadioGroup.Item value={value}>{label}</RadioGroup.Item>
-        <RadioGroup.Item isDisabled value={`${value}-later`}>{disabledLabel}</RadioGroup.Item>
+        <RadioGroup.Item isDisabled value={`${value}-later`}>
+          {disabledLabel}
+        </RadioGroup.Item>
       </RadioGroup>
     </View>
   );
@@ -573,7 +662,7 @@ function SettingSwitch({
   detail,
   label,
   onChange,
-  value
+  value,
 }: {
   detail: string;
   label: string;
@@ -583,8 +672,12 @@ function SettingSwitch({
   return (
     <View style={styles.settingRow}>
       <View style={styles.flexCopy}>
-        <Typography type="body-sm" weight="semibold">{label}</Typography>
-        <Typography color="muted" type="body-xs">{detail}</Typography>
+        <Typography type="body-sm" weight="semibold">
+          {label}
+        </Typography>
+        <Typography color="muted" type="body-xs">
+          {detail}
+        </Typography>
       </View>
       <Switch isSelected={value} onSelectedChange={onChange} />
     </View>
@@ -593,115 +686,115 @@ function SettingSwitch({
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1
+    flex: 1,
   },
   scrollContent: {
     gap: 12,
-    paddingBottom: 96
+    paddingBottom: 96,
   },
   fixedHeader: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     paddingBottom: 10,
-    paddingTop: 4
+    paddingTop: 4,
   },
   fieldStack: {
-    gap: 8
+    gap: 8,
   },
   valueGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   flexCopy: {
     flex: 1,
     gap: 3,
-    minWidth: 0
+    minWidth: 0,
   },
   inlineTitle: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 7
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 7,
   },
   routeRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 12,
     minHeight: 68,
-    paddingVertical: 10
+    paddingVertical: 10,
   },
   encryptionRow: {
     gap: 10,
-    paddingVertical: 12
+    paddingVertical: 12,
   },
   encryptionHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between'
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   iconWell: {
-    alignItems: 'center',
-    backgroundColor: '#f4f4f5',
+    alignItems: "center",
+    backgroundColor: "#f4f4f5",
     borderRadius: 8,
     height: 42,
-    justifyContent: 'center',
-    width: 42
+    justifyContent: "center",
+    width: 42,
   },
   advancedBody: {
     gap: 14,
-    paddingBottom: 8
+    paddingBottom: 8,
   },
   settingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
   },
   diagnostics: {
-    gap: 10
+    gap: 10,
   },
   gate: {
     gap: 4,
-    paddingVertical: 3
+    paddingVertical: 3,
   },
   gateHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 10,
-    justifyContent: 'space-between'
+    justifyContent: "space-between",
   },
   gateTitle: {
-    flex: 1
+    flex: 1,
   },
   actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   monoText: {
-    fontFamily: 'Courier',
-    lineHeight: 17
+    fontFamily: "Courier",
+    lineHeight: 17,
   },
   inlineAlert: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 9
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 9,
   },
   alertText: {
-    color: '#a12f37',
-    flex: 1
+    color: "#a12f37",
+    flex: 1,
   },
   checkoutDock: {
-    alignItems: 'center',
+    alignItems: "center",
     bottom: 12,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     left: 0,
     minHeight: 68,
-    position: 'absolute',
-    right: 0
+    position: "absolute",
+    right: 0,
   },
   dockCopy: {
     flex: 1,
     gap: 2,
-    minWidth: 0
-  }
+    minWidth: 0,
+  },
 });

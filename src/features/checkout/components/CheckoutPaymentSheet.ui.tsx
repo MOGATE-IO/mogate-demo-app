@@ -30,6 +30,7 @@ export function CheckoutPaymentSheet({
   canMint,
   checkoutSelection,
   mint,
+  mintBlockedReason,
   onClose,
   onComplete,
   onCouponCodeChange,
@@ -49,6 +50,7 @@ export function CheckoutPaymentSheet({
   canMint: boolean;
   checkoutSelection: CheckoutSelection | null;
   mint: UniversalAccountMintState;
+  mintBlockedReason: string | null;
   onClose: () => void;
   onComplete: () => void;
   onCouponCodeChange: (couponCode: string) => void;
@@ -64,7 +66,6 @@ export function CheckoutPaymentSheet({
   visible: boolean;
 }) {
   const [couponDraft, setCouponDraft] = useState(checkoutSelection?.couponCode ?? '');
-  const [mintQueued, setMintQueued] = useState(false);
   const amount = checkoutSelection?.amount ?? 0;
   const quotedTotal = mint.preparedCheckout
     ? Number(mint.preparedCheckout.checkoutTotalDisplay ?? mint.preparedCheckout.amountDisplay)
@@ -82,19 +83,9 @@ export function CheckoutPaymentSheet({
     if (visible) setCouponDraft(checkoutSelection?.couponCode ?? '');
   }, [checkoutSelection?.couponCode, visible]);
 
-  useEffect(() => {
-    if (!mintQueued || visible) return undefined;
-    const timer = setTimeout(() => {
-      setMintQueued(false);
-      void mint.executeMint();
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [mint.executeMint, mintQueued, visible]);
-
   const beginMint = () => {
-    if (mintQueued || paying) return;
-    setMintQueued(true);
-    onClose();
+    if (paying) return;
+    void mint.executeMint();
   };
 
   const returnToCheckout = () => {
@@ -114,6 +105,9 @@ export function CheckoutPaymentSheet({
         description={directPayment ? `Direct USDC on ${profile.ua.chainLabel}` : 'UA7702 stablecoin route'}
         footer={(
           <View style={styles.footer}>
+            {mintBlockedReason && !mint.lastError && !mint.uaConfigurationError ? (
+              <Typography style={styles.blockedReason} type="body-xs">{mintBlockedReason}</Typography>
+            ) : null}
             {mint.mintResult ? (
               <Button
                 className="w-full rounded-lg"
@@ -125,11 +119,11 @@ export function CheckoutPaymentSheet({
             ) : mint.preparedCheckout ? (
               <Button
                 className="w-full rounded-lg"
-                isDisabled={!canMint || !receiverValid || paying || mintQueued}
+                isDisabled={!canMint || !receiverValid || paying}
                 onPress={beginMint}
                 variant="primary"
               >
-                <Button.Label>{mintQueued ? 'Opening checkout...' : `Pay ${formatUsdAmount(safeTotal)}`}</Button.Label>
+                <Button.Label>{paying ? 'Opening checkout...' : `Pay ${formatUsdAmount(safeTotal)}`}</Button.Label>
               </Button>
             ) : (
               <Button
@@ -312,8 +306,12 @@ const styles = StyleSheet.create({
   footer: {
     borderTopColor: '#e4e4e7',
     borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
     paddingBottom: 12,
     paddingHorizontal: 18,
     paddingTop: 12
+  },
+  blockedReason: {
+    color: '#a12f37'
   }
 });

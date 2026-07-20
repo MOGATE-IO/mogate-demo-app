@@ -89,7 +89,7 @@ export function useGiftcardInventory({
         recipient,
         wallet
       });
-      await refresh();
+      await refresh().catch(() => undefined);
       return transactionHash;
     } catch (error) {
       setLastError(toErrorMessage(error));

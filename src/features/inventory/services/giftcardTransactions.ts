@@ -9,6 +9,7 @@ import {
 import type { RuntimeNetworkProfile } from '@/config/networkProfiles';
 import type { WalletAdapter } from '@/@web3/types/wallet';
 import type { GiftcardInventoryItem } from '@/features/inventory/services/giftcardInventory';
+import { generateProgrammablePaymentCode } from '@/features/inventory/services/programmablePaymentCode';
 import { withTimeout } from '@/utils/async';
 
 const GIFTCARD_ACTION_ABI = [
@@ -42,6 +43,21 @@ export async function transferGiftcard({
   }
   if (item.isUnwrapped) throw new Error('This giftcard is unwrapped and cannot be transferred.');
 
+  if (hasReservedGas(item)) {
+    const generated = await generateProgrammablePaymentCode({
+      item,
+      ownerAddress,
+      profile,
+      recipientAddress: recipient,
+      ua7702: true,
+      wallet
+    });
+    return consumeReservedGasTransfer({
+      code: generated.code,
+      profile
+    });
+  }
+
   const signer = await getGiftcardSigner({ ownerAddress, profile, wallet });
   const collection = new Contract(item.collection, GIFTCARD_ACTION_ABI, signer);
   const transaction = await collection['safeTransferFrom(address,address,uint256)'](
@@ -56,6 +72,40 @@ export async function transferGiftcard({
   );
   if (!receipt || receipt.status !== 1) throw new Error('Giftcard transfer reverted.');
   return transaction.hash as string;
+}
+
+export function hasReservedGas(item: GiftcardInventoryItem) {
+  try {
+    return BigInt(item.gasReserveAtomic || '0') > 0n;
+  } catch {
+    return false;
+  }
+}
+
+async function consumeReservedGasTransfer({
+  code,
+  profile
+}: {
+  code: string;
+  profile: RuntimeNetworkProfile;
+}) {
+  const response = await withTimeout(
+    fetch(`${profile.apiBase.replace(/\/+$/, '')}/mogate/commerce-codes/consume`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code })
+    }),
+    180_000,
+    'The reserved-gas transfer was not confirmed within 3 minutes.'
+  );
+  const payload = await response.json().catch(() => null) as {
+    message?: string;
+    transactionHash?: string;
+  } | null;
+  if (!response.ok || !payload?.transactionHash) {
+    throw new Error(payload?.message || `Reserved-gas transfer failed (${response.status}).`);
+  }
+  return payload.transactionHash;
 }
 
 export async function unwrapGiftcard({

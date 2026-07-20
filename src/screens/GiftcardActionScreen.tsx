@@ -18,7 +18,11 @@ export function GiftcardActionScreen({
   item: GiftcardInventoryItem;
   onBack: () => void;
 }) {
-  const state = useGiftcardAction({ inventory: context.inventory, item, onSent: onBack });
+  const state = useGiftcardAction({
+    inventory: context.inventory,
+    item,
+    onSent: () => context.goToTab('inventory')
+  });
   const explorerUrl = getGiftcardExplorerUrl(context.profile, item);
 
   return (

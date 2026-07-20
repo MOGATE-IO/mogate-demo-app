@@ -51,6 +51,10 @@ export function TransferMoneySheet({
   const review = transfer.stage === 'review';
   const success = transfer.stage === 'success';
   const preparing = transfer.stage === 'quoting';
+  // HeroBottomSheet is hosted in a native portal above Magic's relayer
+  // WebView. Hide it while Magic displays the EIP-7702 and root-hash signing
+  // prompts, then restore it when Particle begins submission.
+  const walletPromptOpen = transfer.stage === 'authorizing';
   const footer = success ? (
     <Button className="w-full rounded-lg" onPress={transfer.close} variant="primary">
       <Button.Label>Done</Button.Label>
@@ -89,7 +93,7 @@ export function TransferMoneySheet({
       footer={<View style={styles.footer}>{footer}</View>}
       onClose={transfer.close}
       title="Transfer money"
-      visible={transfer.visible}
+      visible={transfer.visible && !walletPromptOpen}
     >
       <View style={styles.sheetBody}>
         <BottomSheetScrollView

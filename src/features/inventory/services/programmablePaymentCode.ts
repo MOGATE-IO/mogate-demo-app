@@ -116,6 +116,7 @@ export async function generateProgrammablePaymentCode({
   const now = Math.floor(Date.now() / 1000);
   const expiry = expirySeconds > 0 ? BigInt(now + expirySeconds) : 0n;
   const secret = hexlify(randomBytes(32)) as HexString;
+  const gasReserve = item.gasReserveAtomic ? BigInt(item.gasReserveAtomic) : 0n;
   const intent = {
     collection: getAddress(item.collection),
     tokenId: BigInt(item.tokenId),
@@ -126,8 +127,8 @@ export async function generateProgrammablePaymentCode({
     chainId: BigInt(profile.ua.targetChainId),
     rulesHash: ZeroHash,
     visibilityPaymentCode: 0,
-    sponsorMode: 0,
-    gasReimbursementLimit: 0n,
+    sponsorMode: gasReserve > 0n ? 2 : 0,
+    gasReimbursementLimit: gasReserve,
     paymentCodeCommitment: keccak256(secret)
   };
   const domain = {

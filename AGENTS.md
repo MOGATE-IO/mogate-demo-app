@@ -65,3 +65,15 @@
 - Quote before asking for final confirmation. Show the fee asset and amount returned by Particle instead of claiming that gas is always paid in USDC.
 - Keep UA trade configuration USD-preferred with USDC/USDT primary assets for this demo. EIP-7702 authorization is signed only when the returned Universal Account transaction requires it.
 - Testnet profiles must remain blocked from UA submission while Particle UA v2 only exposes the supported mainnet path; direct testnet checkout is a separate flow.
+
+## 2026-07-20: Magic Relayer Visibility During Signing
+
+- Magic's React Native `Relayer` is an absolutely positioned WebView in the normal React Native view hierarchy. Native `Modal` and modal-backed sheet surfaces render above it regardless of the relayer's z-index.
+- Checkout and transfer progress surfaces must yield while the wallet stage is `authorizing` so users can see and approve both `magic.wallet.sign7702Authorization()` and the following Particle `rootHash` signature.
+- A Magic signing promise that times out while an app-owned native modal remains visible is a wallet-UI layering failure, not evidence that Particle omitted the EIP-7702 authorization or that Privy must be re-enabled.
+
+## 2026-07-20: Funded Giftcard Send Routing
+
+- A wrapped giftcard with a positive live `gasReserveOf(tokenId)` must not use the direct wallet-paid `safeTransferFrom` path. Mobile creates a recipient-locked, measured-reserve Commerce Code with a Magic-signed EIP-7702 authorization, and OTA relays `executeSignedPaymentCode` through `/mogate/commerce-codes/consume`.
+- A zero-reserve giftcard may continue to use the direct EVM signer path and therefore requires native gas in the holder wallet.
+- Reserve-backed sends require both live contract connections: the Commerce Code gateway's `gasSponsorVault` must be the funded collection, and the funded collection must authorize that gateway. The relayer also needs a dedicated funded executor key; never reuse the funded-checkout permit signer or contract-owner key as the public executor.

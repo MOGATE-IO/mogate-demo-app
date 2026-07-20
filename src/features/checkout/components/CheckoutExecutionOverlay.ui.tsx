@@ -34,7 +34,13 @@ export function CheckoutExecutionOverlay({
 }) {
   const insets = useSafeAreaInsets();
   const completionScheduled = useRef(false);
-  const visible = step !== 'idle';
+  const onCompleteRef = useRef(onComplete);
+  // Magic's React Native relayer is an absolute WebView in the app's normal
+  // view hierarchy. A native Modal always renders above it, so keeping this
+  // progress modal open while Magic signs would make the wallet approval UI
+  // impossible to see or press. Yield during the whole authorization phase;
+  // that phase includes both the EIP-7702 authorization and Particle root hash.
+  const visible = step !== 'idle' && step !== 'authorizing';
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
@@ -45,15 +51,19 @@ export function CheckoutExecutionOverlay({
   }, [step, visible]);
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
     if (step !== 'complete') {
       completionScheduled.current = false;
       return undefined;
     }
     if (completionScheduled.current) return undefined;
     completionScheduled.current = true;
-    const timer = setTimeout(onComplete, 1100);
-    return () => clearTimeout(timer);
-  }, [onComplete, step]);
+    onCompleteRef.current();
+    return undefined;
+  }, [step]);
 
   return (
     <Modal

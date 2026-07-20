@@ -74,6 +74,14 @@ export function useUniversalAccountMint(input: {
   const profile = input.profile ?? getDefaultNetworkProfile();
   const paymentMode = profile.gatewayExecutionMode;
   const receiver = input.receiverAddress?.trim() || input.wallet.ownerAddress || input.wallet.address || '';
+  const uaProbeIdentity = [
+    paymentMode,
+    profile.ua.targetChainId,
+    profile.particle.projectId,
+    profile.particle.clientKey,
+    profile.particle.appId,
+    input.wallet.ownerAddress || input.wallet.address || ''
+  ].join(':');
   const [stage, setStage] = useState<MintStage>('idle');
   const [executionStep, setExecutionStep] = useState<CheckoutExecutionStep>('idle');
   const [checkoutJson, setCheckoutJson] = useState(() => getDirectCheckoutTemplate(receiver, profile));
@@ -92,7 +100,6 @@ export function useUniversalAccountMint(input: {
   useEffect(() => {
     setCheckoutJson(getDirectCheckoutTemplate(receiver, profile));
     setPreparedCheckout(null);
-    setUaProbe(null);
     setMintResult(null);
     setReconciliation({
       status: 'idle',
@@ -114,6 +121,10 @@ export function useUniversalAccountMint(input: {
     profile,
     receiver
   ]);
+
+  useEffect(() => {
+    setUaProbe(null);
+  }, [uaProbeIdentity]);
 
   const parseCheckout = useCallback(() => {
     resetError();

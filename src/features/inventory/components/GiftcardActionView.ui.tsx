@@ -206,7 +206,9 @@ function ActionContent({
         {item.isFunded ? (
           <ReserveGasSummary
             item={item}
-            note="The reserve remains attached to the NFT and moves with it."
+            note={hasVisibleReserve(item)
+              ? 'This transfer uses the NFT reserve for execution gas. The remaining reserve moves with the NFT.'
+              : 'No reserved gas is available, so the connected wallet pays network gas.'}
           />
         ) : null}
         <TextField isInvalid={Boolean(error)}>
@@ -214,9 +216,11 @@ function ActionContent({
           <Input
             autoCapitalize="none"
             autoCorrect={false}
-            className="rounded-lg font-mono"
+            className="rounded-lg border border-border bg-surface font-mono"
+            editable={!sending}
             onChangeText={onRecipientChange}
             placeholder="0x recipient address"
+            spellCheck={false}
             value={recipient}
           />
         </TextField>
@@ -415,9 +419,11 @@ function ActionContent({
               <Input
                 autoCapitalize="none"
                 autoCorrect={false}
-                className="rounded-lg font-mono"
+                className="rounded-lg border border-border bg-surface font-mono"
+                editable={!generatingPaymentCode}
                 onChangeText={onRecipientChange}
                 placeholder="0x recipient address"
+                spellCheck={false}
                 value={recipient}
               />
             </TextField>
@@ -450,6 +456,14 @@ function ActionContent({
   }
 
   return null;
+}
+
+function hasVisibleReserve(item: GiftcardInventoryItem) {
+  try {
+    return BigInt(item.gasReserveAtomic || '0') > 0n;
+  } catch {
+    return false;
+  }
 }
 
 function ReserveGasSummary({
