@@ -116,10 +116,33 @@ describe('programmable payment code', () => {
     expect(envelope.intent.holder).toBe(signer.address);
     expect(envelope.intent.tokenId).toBe('59');
     expect(envelope.intent.visibilityPaymentCode).toBe(0);
+    expect(envelope.intent.sponsorMode).toBe(0);
+    expect(envelope.intent.gasReimbursementLimit).toBe('0');
     expect(envelope.authorization7702).toBeUndefined();
     expect(wallet.signTypedData).toHaveBeenCalledOnce();
     expect(wallet.sign7702Authorization).not.toHaveBeenCalled();
     expect(wallet.getProvider).not.toHaveBeenCalled();
+  });
+
+  it('uses measured reimbursement up to the NFT reserve for a funded Commerce Code', async () => {
+    const signer = Wallet.createRandom();
+    const wallet = signerAdapter(signer);
+    const item = inventoryItem();
+    item.isFunded = true;
+    item.gasReserveAtomic = '100000000000000';
+
+    const result = await generateProgrammablePaymentCode({
+      item,
+      ownerAddress: signer.address,
+      profile,
+      recipientAddress: Wallet.createRandom().address,
+      ua7702: true,
+      wallet: wallet.adapter
+    });
+    const envelope = decodeEnvelope(result.code);
+
+    expect(envelope.intent.sponsorMode).toBe(2);
+    expect(envelope.intent.gasReimbursementLimit).toBe('100000000000000');
   });
 
   it('attaches the optional UA7702 authorization only when requested', async () => {

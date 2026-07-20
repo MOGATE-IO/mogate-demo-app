@@ -7,6 +7,7 @@ import {
   isGiftcardAction
 } from '../src/features/inventory/services/giftcardActions';
 import type { GiftcardInventoryItem } from '../src/features/inventory/services/giftcardInventory';
+import { hasReservedGas } from '../src/features/inventory/services/giftcardTransactions';
 
 const collection = '0x1111111111111111111111111111111111111111' as HexString;
 
@@ -72,5 +73,11 @@ describe('giftcard detail actions', () => {
   it('recognizes the new protected routes', () => {
     expect(isGiftcardAction('unwrap')).toBe(true);
     expect(isGiftcardAction('withdraw-all')).toBe(true);
+  });
+
+  it('routes only positive per-card reserves through sponsored execution', () => {
+    expect(hasReservedGas(item())).toBe(true);
+    expect(hasReservedGas(item({ gasReserveAtomic: '0' }))).toBe(false);
+    expect(hasReservedGas(item({ gasReserveAtomic: null }))).toBe(false);
   });
 });

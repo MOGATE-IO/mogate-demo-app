@@ -170,7 +170,7 @@ export function useMobileAppController({
 
   const goToCheckout = useCallback((selection: CheckoutSelectionInput) => {
     const next = prepareCheckout(selection);
-    router.push({
+    router.navigate({
       pathname: '/mint/[merchantId]',
       params: {
         merchantId: next.merchant.id,
@@ -191,33 +191,33 @@ export function useMobileAppController({
   }, [router]);
 
   const goToProfileAbout = useCallback(() => {
-    router.push('/profile/about');
+    router.navigate('/profile/about');
   }, [router]);
 
   const goToProfile = useCallback(() => {
-    router.push('/profile');
+    router.navigate('/profile');
   }, [router]);
 
   const goToAccountSection = useCallback((section: AccountSection) => {
-    router.push({
+    router.navigate({
       pathname: '/account/[section]',
       params: { section }
     });
   }, [router]);
 
   const goToGiftcardDetails = useCallback((tokenId: string) => {
-    router.push({
+    router.navigate({
       pathname: '/giftcard/[tokenId]',
       params: { tokenId }
     });
   }, [router]);
 
   const goToRequestTool = useCallback((tool: RequestTool) => {
-    router.push(REQUEST_TOOL_PATHS[tool]);
+    router.navigate(REQUEST_TOOL_PATHS[tool]);
   }, [router]);
 
   const goToGiftcardAction = useCallback((tokenId: string, action: GiftcardAction) => {
-    router.push(`/giftcard/${encodeURIComponent(tokenId)}/${action}` as Href);
+    router.navigate(`/giftcard/${encodeURIComponent(tokenId)}/${action}` as Href);
   }, [router]);
 
   return useMemo(

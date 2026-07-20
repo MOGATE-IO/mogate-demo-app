@@ -34,6 +34,7 @@ export function CheckoutExecutionOverlay({
 }) {
   const insets = useSafeAreaInsets();
   const completionScheduled = useRef(false);
+  const onCompleteRef = useRef(onComplete);
   const visible = step !== 'idle';
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -45,15 +46,19 @@ export function CheckoutExecutionOverlay({
   }, [step, visible]);
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
     if (step !== 'complete') {
       completionScheduled.current = false;
       return undefined;
     }
     if (completionScheduled.current) return undefined;
     completionScheduled.current = true;
-    const timer = setTimeout(onComplete, 1100);
-    return () => clearTimeout(timer);
-  }, [onComplete, step]);
+    onCompleteRef.current();
+    return undefined;
+  }, [step]);
 
   return (
     <Modal
