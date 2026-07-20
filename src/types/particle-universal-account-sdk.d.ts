@@ -19,6 +19,15 @@ declare module '@particle-network/universal-account-sdk' {
     amount: string;
   };
 
+  export type ITransferTransaction = {
+    token: {
+      chainId: number;
+      address: string;
+    };
+    amount: string;
+    receiver: string;
+  };
+
   export type IUniversalAccountConfig = {
     projectId: string;
     projectClientKey: string;
@@ -40,6 +49,29 @@ declare module '@particle-network/universal-account-sdk' {
   export type ITransaction = {
     rootHash: string;
     transactionId: string;
+    feeQuotes?: Array<{
+      fees?: {
+        totals?: {
+          feeTokenAmountInUSD?: string;
+          gasFeeTokenAmountInUSD?: string;
+          transactionServiceFeeTokenAmountInUSD?: string;
+          transactionLPFeeTokenAmountInUSD?: string;
+        };
+        feeTokens?: Array<{
+          token: {
+            symbol?: string;
+            type?: string;
+          };
+        }>;
+        freeGasFee?: boolean;
+      };
+    }>;
+    transactionFees?: {
+      freeGasFee?: boolean;
+    };
+    tokenChanges?: {
+      totalFeeInUSD?: string;
+    };
     userOps: Array<{
       chainId: number;
       userOpHash: string;
@@ -73,6 +105,7 @@ declare module '@particle-network/universal-account-sdk' {
         value?: string;
       }>;
     }): Promise<ITransaction>;
+    createTransferTransaction(payload: ITransferTransaction): Promise<ITransaction>;
     sendTransaction(
       transaction: ITransaction,
       signature: string,

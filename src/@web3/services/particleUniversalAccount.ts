@@ -2,7 +2,8 @@ import { Signature, formatUnits } from 'ethers';
 import type {
   EIP7702Authorization,
   IExpectToken,
-  ITransaction
+  ITransaction,
+  ITransferTransaction
 } from '@particle-network/universal-account-sdk';
 
 import {
@@ -36,6 +37,23 @@ export type UaMintResult = {
   tokenId?: string;
   transactionHash?: string;
   universalXUrl?: string;
+};
+
+export type UaTransactionResult = {
+  transaction: ITransaction;
+  result: Record<string, unknown>;
+  authorizations: EIP7702Authorization[];
+  transactionHash?: string;
+  universalXUrl?: string;
+};
+
+export type UaFeeSummary = {
+  totalFeeUsd: number;
+  gasFeeUsd: number;
+  serviceFeeUsd: number;
+  lpFeeUsd: number;
+  feeSymbols: string[];
+  freeGasFee: boolean;
 };
 
 export type UaExecutionProgress = 'routing' | 'authorizing' | 'submitting' | 'minting';
@@ -108,7 +126,7 @@ export async function probeUniversalAccount(
   };
 }
 
-function findTransactionHash(value: unknown, depth = 0): string | undefined {
+export function findTransactionHash(value: unknown, depth = 0): string | undefined {
   if (depth > 5 || value == null) return undefined;
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -163,7 +181,7 @@ export function getUniversalTransactionState(value: unknown) {
   return String(rawState).toLowerCase();
 }
 
-async function waitForUniversalTransaction(
+export async function waitForUniversalTransaction(
   ua: { getTransaction: (transactionId: string) => Promise<unknown> },
   transactionId: string,
   initialResult: Record<string, unknown>
@@ -203,6 +221,105 @@ async function waitForUniversalTransaction(
   throw new Error(
     `Particle Universal Transaction ${transactionId} did not reach a final status within 3 minutes${transactionHash ? ` (${transactionHash})` : ''}. Check its status before retrying.`
   );
+}
+
+function finiteNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Returns the fee deduction Particle quoted for the selected route. */
+export function getUaFeeSummary(transaction: ITransaction): UaFeeSummary {
+  const quote = transaction.feeQuotes?.[0]?.fees;
+  const totals = quote?.totals;
+  const feeSymbols = Array.from(new Set(
+    (quote?.feeTokens ?? [])
+      .map((feeToken) => feeToken.token.symbol ?? feeToken.token.type ?? '')
+      .filter(Boolean)
+      .map((symbol) => String(symbol).toUpperCase())
+  ));
+
+  return {
+    totalFeeUsd: finiteNumber(totals?.feeTokenAmountInUSD ?? transaction.tokenChanges?.totalFeeInUSD),
+    gasFeeUsd: finiteNumber(totals?.gasFeeTokenAmountInUSD),
+    serviceFeeUsd: finiteNumber(totals?.transactionServiceFeeTokenAmountInUSD),
+    lpFeeUsd: finiteNumber(totals?.transactionLPFeeTokenAmountInUSD),
+    feeSymbols,
+    freeGasFee: Boolean(quote?.freeGasFee ?? transaction.transactionFees?.freeGasFee)
+  };
+}
+
+export async function createUaTransferQuote(input: {
+  ownerAddress: string;
+  transfer: ITransferTransaction;
+  profile?: RuntimeNetworkProfile;
+}) {
+  const profile = input.profile ?? getDefaultNetworkProfile();
+  const ua = await createUniversalAccount(input.ownerAddress, profile);
+  const transaction = await withTimeout(
+    ua.createTransferTransaction(input.transfer),
+    60_000,
+    'Particle did not return a transfer route within 60 seconds.'
+  );
+
+  return {
+    transaction,
+    fees: getUaFeeSummary(transaction)
+  };
+}
+
+/**
+ * Signs and submits an already quoted Particle Universal Transaction.
+ * The wallet signs a 7702 authorization only when Particle says the EOA has
+ * not yet delegated on one of the transaction's execution chains.
+ */
+export async function submitUaTransaction(input: {
+  ownerAddress: string;
+  wallet: WalletAdapter;
+  transaction: ITransaction;
+  profile?: RuntimeNetworkProfile;
+  onProgress?: (step: UaExecutionProgress) => void;
+}): Promise<UaTransactionResult> {
+  const profile = input.profile ?? getDefaultNetworkProfile();
+  const ua = await createUniversalAccount(input.ownerAddress, profile);
+
+  input.onProgress?.('authorizing');
+  const authorizations = await withTimeout(
+    signEip7702Authorizations(input.wallet, input.transaction),
+    90_000,
+    'The EIP-7702 authorization was not signed within 90 seconds.'
+  );
+  const signature = await withTimeout(
+    input.wallet.signMessage(input.transaction.rootHash),
+    90_000,
+    'The Universal Account root hash was not signed within 90 seconds.'
+  );
+
+  input.onProgress?.('submitting');
+  const submittedResult = await withTimeout(
+    ua.sendTransaction(
+      input.transaction,
+      signature,
+      authorizations.length > 0 ? authorizations : undefined
+    ),
+    180_000,
+    'Particle did not submit the Universal Transaction within 3 minutes.'
+  );
+
+  const transactionId = String(submittedResult.transactionId ?? submittedResult.id ?? '');
+  input.onProgress?.('minting');
+  const result = await waitForUniversalTransaction(ua, transactionId, submittedResult);
+  const transactionHash = findTransactionHash(result);
+
+  return {
+    transaction: input.transaction,
+    result,
+    authorizations,
+    transactionHash,
+    universalXUrl: transactionId
+      ? `https://universalx.app/activity/details?id=${transactionId}`
+      : undefined
+  };
 }
 
 function getTargetStablecoinType(
@@ -338,48 +455,25 @@ export async function executeUaGiftcardCheckout(input: {
     60_000,
     'Particle did not finish routing the Universal Transaction within 60 seconds.'
   );
-
-  input.onProgress?.('authorizing');
-  const authorizations = await withTimeout(
-    signEip7702Authorizations(input.wallet, transaction),
-    90_000,
-    'The EIP-7702 authorization was not signed within 90 seconds.'
-  );
-  const signature = await withTimeout(
-    input.wallet.signMessage(transaction.rootHash),
-    90_000,
-    'The Universal Account root hash was not signed within 90 seconds.'
-  );
-
-  input.onProgress?.('submitting');
-  const submittedResult = await withTimeout(
-    ua.sendTransaction(
-      transaction,
-      signature,
-      authorizations.length > 0 ? authorizations : undefined
-    ),
-    180_000,
-    'Particle did not submit the Universal Transaction within 3 minutes.'
-  );
-
-  const transactionId = String(submittedResult.transactionId ?? submittedResult.id ?? '');
-  input.onProgress?.('minting');
-  const result = await waitForUniversalTransaction(ua, transactionId, submittedResult);
-  const transactionHash = findTransactionHash(result);
+  const submitted = await submitUaTransaction({
+    ownerAddress: input.ownerAddress,
+    wallet: input.wallet,
+    transaction,
+    profile,
+    onProgress: input.onProgress
+  });
   const tokenId = extractMintedTokenIdFromReceipt({
-    receipt: result.receipt ?? result,
+    receipt: submitted.result.receipt ?? submitted.result,
     receiver: input.checkout.to,
     collection: input.checkout.collection
   });
 
   return {
     transaction,
-    result,
-    authorizations,
+    result: submitted.result,
+    authorizations: submitted.authorizations,
     tokenId,
-    transactionHash,
-    universalXUrl: transactionId
-      ? `https://universalx.app/activity/details?id=${transactionId}`
-      : undefined
+    transactionHash: submitted.transactionHash,
+    universalXUrl: submitted.universalXUrl
   };
 }

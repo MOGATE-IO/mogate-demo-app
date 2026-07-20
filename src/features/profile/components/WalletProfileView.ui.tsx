@@ -36,7 +36,6 @@ export type WalletProfileViewProps = {
   accountName: string;
   balanceErrors: string[];
   balanceStatus: 'idle' | 'loading' | 'ready' | 'error';
-  environmentLabel: string;
   giftcardCount: number;
   giftcardValue: string;
   loginMethod?: string | null;
@@ -50,6 +49,7 @@ export type WalletProfileViewProps = {
   onSettings: () => void;
   onLogout: () => void | Promise<void>;
   onRefreshBalances: () => void | Promise<void>;
+  onTransfer: () => void;
   onTopUp: () => void | Promise<void>;
 };
 
@@ -57,7 +57,6 @@ export function WalletProfileView({
   accountName,
   balanceErrors,
   balanceStatus,
-  environmentLabel,
   giftcardCount,
   giftcardValue,
   loginMethod,
@@ -66,6 +65,7 @@ export function WalletProfileView({
   onLogout,
   onRefreshBalances,
   onSettings,
+  onTransfer,
   onTopUp,
   portfolio,
   nativeRows,
@@ -101,11 +101,11 @@ export function WalletProfileView({
 
       <ProfileAccountCard
         accountName={accountName}
-        environmentLabel={environmentLabel}
         giftcardCount={giftcardCount}
         giftcardValue={giftcardValue}
         loginProvider={loginProvider}
         networkLabel={networkLabel}
+        onTransfer={onTransfer}
         onTopUp={onTopUp}
         stablecoinBalance={stablecoinBalance}
       />

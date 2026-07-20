@@ -58,3 +58,10 @@
 - Funded unwrap calls `unwrap(tokenId)`, which makes the NFT soulbound only. The current owner must then call generic `withdraw(tokenId, balanceType, token, to, amount)` for each value asset and/or native gas reserve before an empty card can be burned.
 - Reconciliation posts the chain transaction hash to `/api/checkouts/reconcile`. UniversalX transaction ID alone is not proof of a target-chain mint.
 - The production OTA endpoint verifies receipt events before marking minted or sending email. The demo server endpoint remains an audit-only JSONL recorder.
+
+## 2026-07-19: Profile Transfers
+
+- Profile transfers use Particle Universal Accounts v2 `createTransferTransaction`; do not replace this with a raw EVM send when the active profile supports UA.
+- Quote before asking for final confirmation. Show the fee asset and amount returned by Particle instead of claiming that gas is always paid in USDC.
+- Keep UA trade configuration USD-preferred with USDC/USDT primary assets for this demo. EIP-7702 authorization is signed only when the returned Universal Account transaction requires it.
+- Testnet profiles must remain blocked from UA submission while Particle UA v2 only exposes the supported mainnet path; direct testnet checkout is a separate flow.

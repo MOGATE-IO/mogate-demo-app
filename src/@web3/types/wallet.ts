@@ -18,6 +18,8 @@ export type UnifiedChainToken = {
   address?: string;
   symbol?: string;
   name?: string;
+  decimals?: number;
+  realDecimals?: number;
 };
 
 export type UnifiedChainAssetBreakdown = {
