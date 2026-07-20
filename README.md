@@ -1,22 +1,27 @@
 # Mogate Funded Giftcard Mobile
 
-Expo mobile client for OTA-authorized funded giftcard checkout. The current default is direct wallet
-execution against the signed UUPS gateway on Ethereum Sepolia. Particle UA remains a later
-transaction wrapper and is not required by the funded contract or OTA signing flow.
+Expo mobile client for OTA-authorized funded giftcard checkout. The active product path is Magic
+Wallet + Particle Universal Account (UA) EIP-7702 execution on Arbitrum One mainnet. Particle
+keeps the user's existing EOA as the signer and can charge execution/routing fees from USDC or
+another supported Primary Asset, avoiding a separate native-gas swap when a supported route exists.
+
+Ethereum Sepolia remains a direct-checkout test route. UA-7702 execution is intentionally not
+available there because this product flow is enabled only for mainnet; direct Sepolia transactions
+therefore need Sepolia native gas.
 
 This app is a nested independent git repo under the parent UA lab workspace. Keep mobile history local to `apps/mobile` unless the parent repo is intentionally converted to a formal submodule.
 
 ## Scope
 
 - Signer switch: `privy`, `magic`, `dynamic`, or `particle`.
-- Particle path: UA SDK/router, balance probe, UniversalTransaction build, rootHash send.
-- Privy path: embedded EOA signer with best-effort `eth_sign7702Authorization`.
-- Magic path: reference-only signer. It is shown in the switch, but Magic RN packages are not bundled until their Expo native dependency tree is SDK 56 clean.
+- Magic path: active embedded EOA provider and EIP-7702 authorization signer.
+- Particle path: UA SDK/router, balance probe, UniversalTransaction build, rootHash send, and supported Primary Asset gas abstraction.
+- Privy path: installed migration/reference signer with best-effort `eth_sign7702Authorization`; it is not the active product path.
 - Dynamic path: scaffolded planned signer until its RN WaaS connector is wired.
 - Particle RN Auth path: probe only until a working 7702 authorization method is proven.
-- Target chain default: Ethereum Sepolia `11155111`.
-- Gateway mode default: `signed-v2` atomic fee/backing/reserve checkout.
-- Runtime network switch: Mainnet/Testnet profiles are code-level config for chain IDs, checkout/catalogue paths, gateway addresses, and onramp settings.
+- Mainnet target: Arbitrum One `42161`, with `ua7702` gateway execution.
+- Testnet target: Ethereum Sepolia `11155111`, with direct `signed-v2` checkout.
+- Runtime network profiles provide chain IDs, checkout/catalogue paths, gateway addresses, and onramp settings.
 - No silent mainnet fallback.
 - No default undelegate. Particle UA and Mogate7702 can replace delegation when each flow needs it.
 
@@ -31,7 +36,7 @@ npm --workspace apps/mobile run devbuild:android
 npm --workspace apps/mobile run start:dev-client
 ```
 
-This app uses native modules from Particle and Privy, and will add Dynamic/Magic only through development builds. Expo Go is not enough.
+This app uses native modules from Magic, Particle, and the Privy migration path. Expo Go is not enough.
 
 ## Architecture
 
@@ -51,12 +56,12 @@ Shared frontend visuals preserve their paths under mobile `assets`: frontend `pu
 React Native Web status:
 
 - `npm --workspace apps/mobile run web` can be used for visual review of the shared screen/component positions.
-- Real Privy React Native login, EIP-7702 authorization signing, Particle native Auth probing, and Privy funding require iOS/Android in an Expo development build.
+- Real Magic/Privy embedded-wallet login, EIP-7702 authorization signing, Particle native Auth probing, and onramp flows require iOS/Android in an Expo development build.
 - Web mode intentionally mounts a no-native Privy bridge, so UA sends remain blocked there.
 
 Development build tradeoffs:
 
-- Pro: native wallet/onramp modules are compiled into the app binary, so Privy/Particle OAuth, deep links, and future Dynamic/Magic signer packages can run.
+- Pro: native wallet/onramp modules are compiled into the app binary, so Magic/Particle OAuth, deep links, and future Dynamic signer packages can run.
 - Pro: the app still loads JS from Metro during development.
 - Con: native dependency or config-plugin changes require rebuilding the app.
 - Con: device testing needs simulator/device builds instead of opening the project inside the Expo Go app.
@@ -87,6 +92,11 @@ The checked-in example contains the active Sepolia addresses. Local credentials 
 EXPO_API_BASE=http://localhost:4000
 EXPO_PUBLIC_PRIVY_APP_ID=
 EXPO_PUBLIC_PRIVY_CLIENT_ID=
+EXPO_PUBLIC_MAGIC_PUBLISHABLE_KEY=
+EXPO_PUBLIC_MAGIC_GOOGLE_REDIRECT_URI=
+EXPO_PUBLIC_PARTICLE_PROJECT_ID=
+EXPO_PUBLIC_PARTICLE_CLIENT_KEY=
+EXPO_PUBLIC_PARTICLE_APP_ID=
 EXPO_PUBLIC_DYNAMIC_ENVIRONMENT_ID=
 EXPO_PUBLIC_MINT_GATEWAY_VERSION=signed-v2
 EXPO_PUBLIC_FUNDED_GATEWAY_ADDRESS=0x5915cBB93c96C5d3D0eCBa39dD396ef959D8Af13
@@ -98,13 +108,14 @@ Wallet stack, UA target, API paths, and public route defaults remain code-level 
 - `src/@web3/config/walletStack.ts` for the active signer stack.
 - `src/config/networkProfiles.ts` for Testnet/Mainnet chain IDs, backend paths, gateway addresses, and onramp defaults.
 
-The mobile client builds checkout, catalogue, reconciliation, Privy onramp, and Transak fallback URLs from `EXPO_API_BASE` plus fixed API paths in `networkProfiles.ts`.
+The mobile client builds checkout, catalogue, reconciliation, onramp, and Transak fallback URLs from `EXPO_API_BASE` plus fixed API paths in `networkProfiles.ts`.
 The catalogue is not mocked in the handler app. `${EXPO_API_BASE}/mogate/giftcard/brands` must return the real merchant list, including the Mogate Giftcard 0.1 USD product when testing that mint path.
 OTA prepares a backend-signed `checkout` payload. The user approves the exact fee/backing amounts
 and sends the transaction; the server does not mint with a private key.
 
 `npm --workspace apps/mobile run preflight` reads `.env.example`, then overlays `.env` and shell
-variables. Direct funded checkout can be ready while Particle UA remains blocked on Sepolia.
+variables. It checks that Mainnet has Magic and Particle configuration for UA-7702; the Sepolia
+profile intentionally remains a direct path.
 
 After a successful UA mint, the app posts to `${EXPO_API_BASE}/api/checkouts/reconcile`; the demo server stores records in `.mogate-flow/checkout-reconciliations.jsonl`.
 
@@ -117,18 +128,21 @@ Particle RN Auth requires dashboard IDs in native project files. The local Expo 
 - Android `manifestPlaceholders["PN_APP_ID"]`
 - iOS `ParticleNetwork-Info.plist`
 
-Particle native config is not part of the default Privy login/top-up development build. Re-enable the local `withParticleNetwork` config plugin only when returning to the Particle RN Auth probe.
+Particle RN Auth config is not required for the active Magic + Particle UA path. Re-enable the local `withParticleNetwork` config plugin only when returning to the Particle RN Auth probe.
 
 ## Mint Flow
 
-1. Connect the Privy embedded EOA.
+1. Connect the Magic embedded EOA. This remains the user's owner and NFT receiver address.
 2. Select a funded catalogue product; fixed value and direct gas reserve are defaults.
 3. OTA returns a signed `checkout` with separate service fee, backing, reserve, and value policy.
-4. The client sends required ERC20 approvals and calls the funded gateway proxy.
-5. The client submits the target-chain transaction hash to OTA reconciliation.
+4. On Mainnet, Particle UA builds an EIP-7702 Universal Transaction. A supported Primary Asset,
+   such as USDC, can cover transaction execution and routing fees without a prior native-gas swap.
+5. The gateway mints the funded NFT to the same owner EOA, and the client submits the target-chain
+   transaction hash to OTA reconciliation.
 
-The owner EOA pays transaction gas and receives the funded NFT. Particle UA may later transport
-the same calls after cross-chain asset preparation.
+Particle UA never makes an unsupported token into gas. The selected asset, source chain, target
+chain, account balance, and available route must all be supported. If they are not, checkout stops
+with a blocker instead of silently using a separate smart-account custody path.
 
 The app now has five main tabs:
 
@@ -152,10 +166,9 @@ The app also shows an `Identity continuity` card after wallet connection. Use it
 
 The “Product readiness” card also blocks obvious setup mistakes before signing:
 
-- Missing Particle project config for UA minting.
-- Missing Privy app/client IDs for the active network profile.
-- Non-product signer stack.
 - Missing Particle UA project config for minting.
+- Missing Magic publishable key or Google redirect URI for Mainnet UA-7702 minting.
+- Non-product signer stack.
 - Missing signed funded gateway or funded collection address.
 
 The same checks are available from the command line:
@@ -164,31 +177,28 @@ The same checks are available from the command line:
 npm --workspace apps/mobile run preflight
 ```
 
-For v0 ERC20 payments, the app batches:
-
-1. `approve(authorityGateway, amount)`
-2. `unsafeCheckout(checkout, paymentToken, amount)`
-
-For signed ERC20 funded giftcards, the app sends:
+For signed ERC20 funded giftcards, the app prepares:
 
 1. `approve(fundedGiftcardCollection, backingAmount)`
 2. `approve(gatewayProxy, serviceFeeAmount)`
 3. `gatewayProxy.checkout(checkout, fee, funding, permit, signature)`
 
-For native funding/reserve/fee, `checkout` carries their exact signed total in `msg.value`.
+For native funding/reserve/fee, `checkout` carries their exact signed total in `msg.value`. Particle
+UA is the execution and gas-abstraction layer; it does not change the funded gateway's exact,
+OTA-signed purchase terms.
 
-The active Sepolia proxy mints backing and direct reserve atomically. The legacy encrypted v0 route
+The Sepolia direct profile mints backing and direct reserve atomically. The legacy encrypted v0 route
 remains parser-compatible but is not the default funded path.
 
 ## Known Blockers To Prove
 
-- Testnet/Sepolia UA sends require explicit Particle dashboard/SDK proof before use. The mobile demo currently defaults to Testnet/Arbitrum Sepolia; Mainnet/Arbitrum One remains a manual profile switch.
+- UA-7702 is deliberately Mainnet-only in this product. Testnet/Sepolia remains a direct checkout
+  route and requires Sepolia native gas.
 - If the selected signer does not expose EIP-7702 authorization signing, the app stops with a wallet capability blocker. Do not fall back to smart-account mode for this proof.
-- Magic is intentionally blocked and not installed in the default app until its Expo RN package tree is native-clean for this SDK.
 - Dynamic is intentionally blocked until the RN WaaS connector is wired and verified.
 - Transak staging ERC20 onramp may deliver TRNSK instead of usable USDC.
 
 Provider identity setup is documented in `../../docs/provider-identity-setup.md`. Same-login/same-address continuity requires the same embedded signer provider and project across web and mobile.
 
-Native-build status and the Magic reference-signer decision are documented in `../../docs/mobile-native-build-notes.md`.
-Magic and Dynamic promotion steps live in `../../docs/magic-signer-runbook.md` and `../../docs/dynamic-signer-runbook.md`.
+Native-build status is documented in `../../docs/mobile-native-build-notes.md`. Magic and Dynamic
+operational notes live in `../../docs/magic-signer-runbook.md` and `../../docs/dynamic-signer-runbook.md`.
